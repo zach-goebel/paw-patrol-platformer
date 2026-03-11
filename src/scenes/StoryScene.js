@@ -75,7 +75,13 @@ export default class StoryScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameScene', { level: 0 });
+      const hasSeenTutorial = this.registry.get('hasSeenTutorial');
+      if (!hasSeenTutorial) {
+        this.registry.set('hasSeenTutorial', true);
+        this.scene.start('TutorialScene');
+      } else {
+        this.scene.start('GameScene', { level: 0 });
+      }
     });
   }
 }

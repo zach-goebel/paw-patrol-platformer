@@ -58,8 +58,11 @@ export default class MenuScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Play button handler
+    // Play button handler — click or any key
     playBtn.on('pointerdown', () => {
+      this.onPlayTap(playBtn);
+    });
+    this.input.keyboard.on('keydown', () => {
       this.onPlayTap(playBtn);
     });
 
@@ -122,12 +125,9 @@ export default class MenuScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       // Show tutorial on first play, skip on replays
       const hasSeenTutorial = this.registry.get('hasSeenTutorial');
-      if (!hasSeenTutorial) {
-        this.registry.set('hasSeenTutorial', true);
-        this.scene.start('TutorialScene');
-      } else {
-        this.scene.start('StoryScene');
-      }
+      // Flow: Menu → Story → Tutorial (first time) → Game
+      // On replay: Menu → Story → Game
+      this.scene.start('StoryScene');
     });
   }
 }

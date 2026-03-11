@@ -142,7 +142,7 @@ export default class GameScene extends Phaser.Scene {
         this.playerGroundY = platform.y - (platform.displayHeight / 2);
       }
     });
-    // Removed: enemies-vs-platforms collider (was zeroing patrol velocity)
+    this.physics.add.collider(this.enemies, this.platforms);
     this.physics.add.overlap(this.player, this.collectibles, this.collectTreat, null, this);
     this.physics.add.overlap(this.player, this.enemies, this.playerEnemyCollision, null, this);
 
@@ -329,10 +329,25 @@ export default class GameScene extends Phaser.Scene {
     // Net-vs-boss overlap (persistent)
     this.netBossOverlap = this.physics.add.overlap(this.nets, this.boss, (net, boss) => {
       if (!net.active) return;
-      net.setActive(false).setVisible(false);
-      net.body.enable = false;
       if (this.bossState === 'vulnerable') {
+        // Hit! Consume the net and damage boss
+        net.setActive(false).setVisible(false);
+        net.body.enable = false;
         this.hitBossWithNet();
+      } else {
+        // Bounce off! Net reflects back
+        net.setVelocityX(-net.body.velocity.x);
+        net.originX = net.x; // reset origin so distance check works from bounce point
+
+        // Visual flash on boss to show it didn't work
+        if (this.boss && this.boss.active) {
+          this.boss.setTint(0xaaaaaa);
+          this.time.delayedCall(150, () => {
+            if (this.boss && this.boss.active && this.bossState !== 'vulnerable') {
+              this.boss.clearTint();
+            }
+          });
+        }
       }
     });
   }
