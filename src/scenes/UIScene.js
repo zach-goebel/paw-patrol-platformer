@@ -11,9 +11,19 @@ export default class UIScene extends Phaser.Scene {
     this.add.rectangle(GAME_WIDTH / 2, 20, GAME_WIDTH, 40, COLORS.UI_DARK, 0.3);
 
     // Treat counter
-    this.treatText = this.add.text(16, 8, '🦴 0', {
+    this.treatText = this.add.text(16, 8, '\u{1F9B4} 0', {
       fontSize: '24px',
       fill: '#ffd700',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+
+    // Kitty capture counter
+    this.kittyText = this.add.text(120, 8, '\u{1F431} 0', {
+      fontSize: '24px',
+      fill: '#c39bd3',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       stroke: '#000000',
@@ -27,8 +37,8 @@ export default class UIScene extends Phaser.Scene {
       this.hearts.push(heart);
     }
 
-    // Paw button hint (small, bottom center)
-    this.add.text(GAME_WIDTH / 2, 8, '[X] = Paw Attack', {
+    // Net button hint (small, bottom center)
+    this.add.text(GAME_WIDTH / 2, 8, '[X] = Net', {
       fontSize: '12px',
       fill: '#aaaaaa',
       fontFamily: 'monospace',
@@ -39,15 +49,17 @@ export default class UIScene extends Phaser.Scene {
     // Listen for events
     this.game.events.on('score-changed', this.onScoreChanged, this);
     this.game.events.on('health-changed', this.onHealthChanged, this);
+    this.game.events.on('kitty-captured', this.onKittyCaptured, this);
 
     this.events.on('shutdown', () => {
       this.game.events.off('score-changed', this.onScoreChanged, this);
       this.game.events.off('health-changed', this.onHealthChanged, this);
+      this.game.events.off('kitty-captured', this.onKittyCaptured, this);
     });
   }
 
   onScoreChanged(treatsCollected) {
-    this.treatText.setText(`🦴 ${treatsCollected}`);
+    this.treatText.setText(`\u{1F9B4} ${treatsCollected}`);
 
     this.tweens.add({
       targets: this.treatText,
@@ -77,5 +89,16 @@ export default class UIScene extends Phaser.Scene {
         yoyo: true,
       });
     }
+  }
+
+  onKittyCaptured(count) {
+    this.kittyText.setText(`\u{1F431} ${count}`);
+
+    this.tweens.add({
+      targets: this.kittyText,
+      scale: 1.3,
+      duration: 100,
+      yoyo: true,
+    });
   }
 }

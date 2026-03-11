@@ -5,9 +5,9 @@ export const DOUBLE_JUMP_VELOCITY = -300;
 export const BOUNCE_VELOCITY = -200;
 export const INVINCIBILITY_MS = 2500;
 export const MAX_HEALTH = 3;
-export const PAW_ATTACK_DURATION = 200;
-export const PAW_ATTACK_COOLDOWN = 500;
-export const PAW_ATTACK_RANGE = 40;
+export const NET_SPEED = 300;
+export const NET_MAX_DISTANCE = 192;
+export const NET_COOLDOWN = 500;
 
 // Physics
 export const GRAVITY = 800;
@@ -29,7 +29,7 @@ export const ASSETS = {
   BOSS: 'boss',
   SKYE: 'skye',
   TILESET: 'tileset',
-  PAW_BUTTON: 'paw-button',
+  NET_BUTTON: 'net-button',
   PLAY_ICON: 'play-icon',
   ARROW_LEFT: 'arrow-left',
   ARROW_RIGHT: 'arrow-right',
@@ -82,10 +82,10 @@ export const LEVELS = [
       { x: 2500, y: 350, w: 192, h: 32 },
     ],
     enemies: [
-      { x: 600, y: 416, patrolLeft: 500, patrolRight: 700 },
-      { x: 1200, y: 416, patrolLeft: 1100, patrolRight: 1350 },
-      { x: 1800, y: 416, patrolLeft: 1700, patrolRight: 1950 },
-      { x: 2400, y: 416, patrolLeft: 2300, patrolRight: 2550 },
+      { x: 600, y: 416, patrolLeft: 450, patrolRight: 750 },
+      { x: 1200, y: 416, patrolLeft: 1050, patrolRight: 1400 },
+      { x: 1800, y: 416, patrolLeft: 1600, patrolRight: 2000 },
+      { x: 2400, y: 416, patrolLeft: 2200, patrolRight: 2600 },
     ],
     collectibles: [
       { x: 200, y: 410 },
@@ -106,8 +106,9 @@ export const LEVELS = [
     ],
     exitX: 3100,
     hasBoss: true,
+    miniBoss: true,
     bossX: 2900,
-    bossHP: 2,
+    bossHP: 1,
     bossSpeed: 60,
     hasSkye: false,
   },
@@ -132,12 +133,12 @@ export const LEVELS = [
       { x: 2500, y: 280, w: 128, h: 32 },
     ],
     enemies: [
-      { x: 400, y: 416, patrolLeft: 300, patrolRight: 550 },
-      { x: 800, y: 416, patrolLeft: 700, patrolRight: 950 },
-      { x: 1300, y: 416, patrolLeft: 1150, patrolRight: 1400 },
-      { x: 1600, y: 416, patrolLeft: 1500, patrolRight: 1750 },
-      { x: 2100, y: 416, patrolLeft: 2000, patrolRight: 2250 },
-      { x: 2600, y: 416, patrolLeft: 2450, patrolRight: 2700 },
+      { x: 400, y: 416, patrolLeft: 250, patrolRight: 550 },
+      { x: 800, y: 416, patrolLeft: 600, patrolRight: 1000 },
+      { x: 1300, y: 416, patrolLeft: 1100, patrolRight: 1500 },
+      { x: 1600, y: 416, patrolLeft: 1400, patrolRight: 1800 },
+      { x: 2100, y: 416, patrolLeft: 1900, patrolRight: 2300 },
+      { x: 2600, y: 416, patrolLeft: 2400, patrolRight: 2700 },
     ],
     collectibles: [
       { x: 150, y: 410 },
@@ -158,8 +159,9 @@ export const LEVELS = [
     ],
     exitX: 3100,
     hasBoss: true,
+    miniBoss: true,
     bossX: 2900,
-    bossHP: 3,
+    bossHP: 1,
     bossSpeed: 80,
     hasSkye: false,
   },
@@ -181,10 +183,10 @@ export const LEVELS = [
       { x: 1750, y: 360, w: 160, h: 32 },
     ],
     enemies: [
-      { x: 350, y: 416, patrolLeft: 250, patrolRight: 500 },
-      { x: 750, y: 416, patrolLeft: 650, patrolRight: 900 },
-      { x: 1100, y: 416, patrolLeft: 1000, patrolRight: 1250 },
-      { x: 1600, y: 416, patrolLeft: 1450, patrolRight: 1700 },
+      { x: 350, y: 416, patrolLeft: 150, patrolRight: 550 },
+      { x: 750, y: 416, patrolLeft: 550, patrolRight: 950 },
+      { x: 1100, y: 416, patrolLeft: 900, patrolRight: 1300 },
+      { x: 1600, y: 416, patrolLeft: 1400, patrolRight: 1800 },
     ],
     collectibles: [
       { x: 150, y: 410 },

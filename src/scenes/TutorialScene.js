@@ -26,7 +26,7 @@ export default class TutorialScene extends Phaser.Scene {
     const controls = [
       { icon: '← →', label: 'Arrow Keys = Move' },
       { icon: '↑ / Space', label: 'Jump (press twice to double jump!)' },
-      { icon: 'X', label: 'Paw Attack (defeat kitties & bosses!)' },
+      { icon: 'X', label: 'Shoot Net (capture kitties!)' },
     ];
 
     const startY = 160;
@@ -54,16 +54,36 @@ export default class TutorialScene extends Phaser.Scene {
       }).setOrigin(0, 0.5);
     });
 
+    // Gameplay tips
+    const tipY = startY + 3 * spacing + 10;
+    this.add.text(GAME_WIDTH / 2, tipY, 'Jump on a kitty or shoot a net to capture it!', {
+      fontSize: '14px',
+      fill: '#87ceeb',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
+    this.add.text(GAME_WIDTH / 2, tipY + 22, 'Hit Humdinger with a net while he\'s flashing!', {
+      fontSize: '14px',
+      fill: '#87ceeb',
+      fontFamily: 'monospace',
+    }).setOrigin(0.5);
+
     // Touch controls note
-    if (this.sys.game.device.input.touch) {
-      this.add.text(GAME_WIDTH / 2, startY + 3 * spacing + 10, 'Touch: Use on-screen buttons!', {
+    const primaryIsCoarse = window.matchMedia('(pointer: coarse)').matches;
+    const cannotHover = window.matchMedia('(hover: none)').matches;
+    const hasTouchPoints = navigator.maxTouchPoints > 0;
+    const anyCoarse = window.matchMedia('(any-pointer: coarse)').matches;
+    const showTouch = (primaryIsCoarse && cannotHover) ||
+      (anyCoarse && hasTouchPoints && window.innerWidth <= 1024);
+
+    if (showTouch) {
+      this.add.text(GAME_WIDTH / 2, tipY + 54, 'Touch: Use on-screen buttons!', {
         fontSize: '14px',
         fill: '#87ceeb',
         fontFamily: 'monospace',
       }).setOrigin(0.5);
 
-      // Show paw button
-      this.add.image(GAME_WIDTH / 2 + 120, startY + 2 * spacing - 40, 'paw-button').setScale(0.4);
+      this.add.image(GAME_WIDTH / 2 + 120, startY + 2 * spacing - 40, 'net-button').setScale(0.4);
     }
 
     // Dismiss prompt
@@ -96,7 +116,7 @@ export default class TutorialScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameScene', { level: 0 });
+      this.scene.start('StoryScene');
     });
   }
 }

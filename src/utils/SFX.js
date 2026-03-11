@@ -28,7 +28,7 @@ export default class SFX {
       case 'double-jump': this._tone(t, 500, 800, 0.08, 0.12); break;
       case 'collect': this._chime(t); break;
       case 'stomp': this._boing(t); break;
-      case 'paw': this._noise(t, 0.06); break;
+      case 'net': this._tone(t, 800, 400, 0.1, 0.12); break;
       case 'hurt': this._tone(t, 400, 200, 0.12, 0.2); break;
       case 'boss-hit': this._tone(t, 200, 80, 0.1, 0.25); break;
       case 'victory': this._arpeggio(t); break;

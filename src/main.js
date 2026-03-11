@@ -5,6 +5,7 @@ import SFX from './utils/SFX.js';
 import PreloadScene from './scenes/PreloadScene.js';
 import MenuScene from './scenes/MenuScene.js';
 import TutorialScene from './scenes/TutorialScene.js';
+import StoryScene from './scenes/StoryScene.js';
 import GameScene from './scenes/GameScene.js';
 import VictoryScene from './scenes/VictoryScene.js';
 import UIScene from './scenes/UIScene.js';
@@ -30,7 +31,7 @@ const config = {
   input: {
     activePointers: 3,
   },
-  scene: [PreloadScene, MenuScene, TutorialScene, GameScene, VictoryScene, UIScene],
+  scene: [PreloadScene, MenuScene, TutorialScene, StoryScene, GameScene, VictoryScene, UIScene],
 };
 
 const game = new Phaser.Game(config);

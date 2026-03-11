@@ -76,19 +76,37 @@ export default class PreloadScene extends Phaser.Scene {
     treatGfx.generateTexture('treat', 32, 32);
     treatGfx.destroy();
 
-    // Paw button for boss fight
-    const pawGfx = this.make.graphics({ add: false });
-    pawGfx.fillStyle(COLORS.PAW_RED);
-    pawGfx.fillCircle(48, 48, 48);
-    pawGfx.fillStyle(0xffffff);
-    // Paw pad
-    pawGfx.fillCircle(48, 52, 20);
-    // Toes
-    pawGfx.fillCircle(32, 32, 8);
-    pawGfx.fillCircle(48, 26, 8);
-    pawGfx.fillCircle(64, 32, 8);
-    pawGfx.generateTexture('paw-button', 96, 96);
-    pawGfx.destroy();
+    // Net projectile texture
+    const netGfx = this.make.graphics({ add: false });
+    netGfx.fillStyle(0x4499dd);
+    netGfx.fillRect(2, 2, 20, 12);
+    netGfx.lineStyle(1, 0x226699);
+    for (let x = 2; x <= 22; x += 5) netGfx.lineBetween(x, 2, x, 14);
+    for (let y = 2; y <= 14; y += 4) netGfx.lineBetween(2, y, 22, y);
+    netGfx.fillStyle(0x885522);
+    netGfx.fillCircle(2, 8, 3);
+    netGfx.generateTexture('net-projectile', 24, 16);
+    netGfx.destroy();
+
+    // Net button for boss fight prompt
+    const netBtnGfx = this.make.graphics({ add: false });
+    netBtnGfx.fillStyle(COLORS.CHASE_BLUE);
+    netBtnGfx.fillCircle(48, 48, 48);
+    netBtnGfx.fillStyle(0xffffff);
+    netBtnGfx.fillRect(24, 30, 48, 36);
+    netBtnGfx.lineStyle(2, 0xcccccc);
+    for (let x = 24; x <= 72; x += 8) netBtnGfx.lineBetween(x, 30, x, 66);
+    for (let y = 30; y <= 66; y += 8) netBtnGfx.lineBetween(24, y, 72, y);
+    netBtnGfx.generateTexture('net-button', 96, 96);
+    netBtnGfx.destroy();
+
+    // Stage transition arrow (gold, pointing right)
+    const arrowGfx = this.make.graphics({ add: false });
+    arrowGfx.fillStyle(COLORS.TREAT_GOLD);
+    arrowGfx.fillTriangle(24, 0, 48, 24, 24, 48);
+    arrowGfx.fillRect(0, 12, 24, 24);
+    arrowGfx.generateTexture('stage-arrow', 48, 48);
+    arrowGfx.destroy();
 
     // Play icon (triangle in circle)
     const playGfx = this.make.graphics({ add: false });
@@ -147,17 +165,17 @@ export default class PreloadScene extends Phaser.Scene {
     heartEmptyGfx.generateTexture('heart-empty', 24, 22);
     heartEmptyGfx.destroy();
 
-    // Touch paw attack button (smaller version)
-    const pawTouchGfx = this.make.graphics({ add: false });
-    pawTouchGfx.fillStyle(COLORS.PAW_RED, 0.7);
-    pawTouchGfx.fillCircle(40, 40, 40);
-    pawTouchGfx.fillStyle(0xffffff);
-    pawTouchGfx.fillCircle(40, 44, 16);
-    pawTouchGfx.fillCircle(28, 28, 6);
-    pawTouchGfx.fillCircle(40, 22, 6);
-    pawTouchGfx.fillCircle(52, 28, 6);
-    pawTouchGfx.generateTexture('paw-touch', arrowSize, arrowSize);
-    pawTouchGfx.destroy();
+    // Touch net attack button
+    const netTouchGfx = this.make.graphics({ add: false });
+    netTouchGfx.fillStyle(COLORS.CHASE_BLUE, 0.7);
+    netTouchGfx.fillCircle(40, 40, 40);
+    netTouchGfx.fillStyle(0xffffff);
+    netTouchGfx.fillRect(20, 24, 40, 32);
+    netTouchGfx.lineStyle(2, 0xcccccc);
+    for (let x = 20; x <= 60; x += 8) netTouchGfx.lineBetween(x, 24, x, 56);
+    for (let y = 24; y <= 56; y += 8) netTouchGfx.lineBetween(20, y, 60, y);
+    netTouchGfx.generateTexture('net-touch', arrowSize, arrowSize);
+    netTouchGfx.destroy();
   }
 
   create() {

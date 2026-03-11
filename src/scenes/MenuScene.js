@@ -126,7 +126,7 @@ export default class MenuScene extends Phaser.Scene {
         this.registry.set('hasSeenTutorial', true);
         this.scene.start('TutorialScene');
       } else {
-        this.scene.start('GameScene', { level: 0 });
+        this.scene.start('StoryScene');
       }
     });
   }

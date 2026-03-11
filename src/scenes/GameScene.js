@@ -3,7 +3,7 @@ import {
   GAME_WIDTH, GAME_HEIGHT, TILE_SIZE,
   PLAYER_SPEED, JUMP_VELOCITY, DOUBLE_JUMP_VELOCITY,
   BOUNCE_VELOCITY, INVINCIBILITY_MS, MAX_HEALTH,
-  PAW_ATTACK_DURATION, PAW_ATTACK_COOLDOWN, PAW_ATTACK_RANGE,
+  NET_SPEED, NET_MAX_DISTANCE, NET_COOLDOWN,
   LEVELS, COLORS,
 } from '../config/constants.js';
 
@@ -17,22 +17,28 @@ export default class GameScene extends Phaser.Scene {
     this.levelIndex = data.level ?? state.currentLevel;
     this.levelData = LEVELS[this.levelIndex];
     this.isInvincible = false;
-    this.touchIntent = { left: false, right: false, jump: false, paw: false };
+    this.cinematicMode = false;
+    this.isTransitioning = false;
+    this.touchIntent = { left: false, right: false, jump: false, net: false };
     this.pendingTimers = [];
 
     // Double jump
     this.jumpsRemaining = 2;
     this.wasOnGround = true;
 
-    // Paw attack
-    this.pawOnCooldown = false;
-    this.pawHitbox = null;
+    // Net attack
+    this.netOnCooldown = false;
 
     // Boss state
     this.bossState = 'inactive';
-    this.bossCatches = 0;
     this.bossActive = false;
     this.bossHP = this.levelData.bossHP || 3;
+
+    // Player ground level (for boss Y-tracking)
+    this.playerGroundY = GAME_HEIGHT - 100;
+
+    // End sequence
+    this.skyeReached = false;
 
     // Health - reset per level
     state.resetHealth();
@@ -54,7 +60,6 @@ export default class GameScene extends Phaser.Scene {
         isGround ? level.groundColor : level.platformColor
       );
 
-      // Add top highlight to non-ground platforms
       if (!isGround) {
         const highlight = this.add.rectangle(
           p.x + p.w / 2, p.y + 2, p.w, 4,
@@ -71,19 +76,29 @@ export default class GameScene extends Phaser.Scene {
       this.platforms.add(plat);
     });
 
-    // Create collectibles
+    // Create collectibles with directControl to prevent tween/physics flicker
     this.collectibles = this.physics.add.group();
     level.collectibles.forEach((c) => {
-      const treat = this.physics.add.image(c.x, c.y, 'treat');
+      // Clamp Y above nearest platform surface
+      let clampedY = c.y;
+      level.platforms.forEach((p) => {
+        if (c.x >= p.x && c.x <= p.x + p.w) {
+          if (c.y > p.y - 16 && c.y < p.y + p.h) {
+            clampedY = Math.min(clampedY, p.y - 20);
+          }
+        }
+      });
+
+      const treat = this.physics.add.image(c.x, clampedY, 'treat');
       treat.body.setAllowGravity(false);
       treat.body.setImmovable(true);
+      treat.body.setDirectControl(true);
       treat.setDepth(5);
       this.collectibles.add(treat);
 
-      // Gentle floating animation - use display offset to avoid physics issues
       this.tweens.add({
         targets: treat,
-        y: c.y - 6,
+        y: clampedY - 6,
         duration: 1000 + Math.random() * 500,
         yoyo: true,
         repeat: -1,
@@ -91,16 +106,17 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // Create enemies (kitties)
+    // Create enemies (kitties) with reduced hitbox
     this.enemies = this.physics.add.group();
     level.enemies.forEach((e) => {
-      // Adjust y so 64x64 kitty sits on ground (origin is center)
       const kitty = this.physics.add.sprite(e.x, e.y - 16, 'kitty');
       kitty.body.setAllowGravity(false);
       kitty.body.setImmovable(true);
+      kitty.body.setSize(40, 48);
+      kitty.body.setOffset(12, 12);
       kitty.patrolLeft = e.patrolLeft;
       kitty.patrolRight = e.patrolRight;
-      kitty.speed = 40 + Math.random() * 20;
+      kitty.speed = 60 + Math.random() * 20;
       kitty.setVelocityX(kitty.speed);
       kitty.setDepth(5);
       this.enemies.add(kitty);
@@ -114,11 +130,29 @@ export default class GameScene extends Phaser.Scene {
     this.player.body.setOffset(14, 10);
     this.player.setDepth(10);
 
+    // Net projectile pool
+    this.nets = this.physics.add.group({
+      maxSize: 4,
+      allowGravity: false,
+    });
+
     // Collisions
-    this.physics.add.collider(this.player, this.platforms);
-    this.physics.add.collider(this.enemies, this.platforms);
+    this.physics.add.collider(this.player, this.platforms, (player, platform) => {
+      if (player.body.touching.down) {
+        this.playerGroundY = platform.y - (platform.displayHeight / 2);
+      }
+    });
+    // Removed: enemies-vs-platforms collider (was zeroing patrol velocity)
     this.physics.add.overlap(this.player, this.collectibles, this.collectTreat, null, this);
     this.physics.add.overlap(this.player, this.enemies, this.playerEnemyCollision, null, this);
+
+    // Net overlaps — persistent, checked against pool group
+    this.physics.add.overlap(this.nets, this.enemies, (net, enemy) => {
+      if (!net.active) return;
+      net.setActive(false).setVisible(false);
+      net.body.enable = false;
+      this.defeatEnemy(enemy);
+    });
 
     // Level exit zone
     this.exitZone = this.add.rectangle(level.exitX, GAME_HEIGHT / 2, TILE_SIZE * 2, GAME_HEIGHT, 0x00ff00, 0);
@@ -142,10 +176,19 @@ export default class GameScene extends Phaser.Scene {
     // Keyboard input
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.pawKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    this.netKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
 
-    // Touch controls
-    this.createTouchControls();
+    // Touch controls — only on touch devices
+    const primaryIsCoarse = window.matchMedia('(pointer: coarse)').matches;
+    const cannotHover = window.matchMedia('(hover: none)').matches;
+    const hasTouchPoints = navigator.maxTouchPoints > 0;
+    const anyCoarse = window.matchMedia('(any-pointer: coarse)').matches;
+    this.isTouchDevice = (primaryIsCoarse && cannotHover) ||
+      (anyCoarse && hasTouchPoints && window.innerWidth <= 1024);
+
+    if (this.isTouchDevice) {
+      this.createTouchControls();
+    }
 
     // Launch UI scene
     this.scene.launch('UIScene');
@@ -154,6 +197,7 @@ export default class GameScene extends Phaser.Scene {
     const state = this.registry.get('state');
     this.game.events.emit('score-changed', state.treatsCollected);
     this.game.events.emit('health-changed', state.health);
+    this.game.events.emit('kitty-captured', state.kittiesCaptured);
 
     // Level name display
     this.showLevelName(level.name);
@@ -167,7 +211,6 @@ export default class GameScene extends Phaser.Scene {
     const bgKey = `bg-${level.key}`;
     const worldWidth = level.exitX + 200;
 
-    // Tile the background image across the world width
     const bgImage = this.textures.get(bgKey);
     const bgWidth = bgImage.getSourceImage().width;
     const tilesNeeded = Math.ceil(worldWidth / bgWidth) + 1;
@@ -176,12 +219,9 @@ export default class GameScene extends Phaser.Scene {
       const bg = this.add.image(i * bgWidth, 0, bgKey)
         .setOrigin(0, 0)
         .setDepth(-10);
-
-      // Slow scroll for parallax feel
       bg.setScrollFactor(0.3);
     }
 
-    // Fallback solid color behind the tiled images
     this.cameras.main.setBackgroundColor(level.background);
   }
 
@@ -234,13 +274,13 @@ export default class GameScene extends Phaser.Scene {
     jumpBtn.on('pointerup', () => { this.touchIntent.jump = false; jumpBtn.setAlpha(btnAlpha); });
     jumpBtn.on('pointerout', () => { this.touchIntent.jump = false; jumpBtn.setAlpha(btnAlpha); });
 
-    // Paw attack button (touch only)
-    const pawBtn = this.add.image(GAME_WIDTH - 170, bottomY, 'paw-touch')
+    // Net attack button
+    const netBtn = this.add.image(GAME_WIDTH - 170, bottomY, 'net-touch')
       .setScrollFactor(0).setAlpha(btnAlpha).setInteractive().setDepth(100);
 
-    pawBtn.on('pointerdown', () => { this.touchIntent.paw = true; pawBtn.setAlpha(btnAlphaActive); });
-    pawBtn.on('pointerup', () => { pawBtn.setAlpha(btnAlpha); });
-    pawBtn.on('pointerout', () => { pawBtn.setAlpha(btnAlpha); });
+    netBtn.on('pointerdown', () => { this.touchIntent.net = true; netBtn.setAlpha(btnAlphaActive); });
+    netBtn.on('pointerup', () => { netBtn.setAlpha(btnAlpha); });
+    netBtn.on('pointerout', () => { netBtn.setAlpha(btnAlpha); });
   }
 
   // --- BOSS ---
@@ -252,7 +292,6 @@ export default class GameScene extends Phaser.Scene {
     if (level.hasSkye) {
       this.skye = this.add.image(bossX + 300, GAME_HEIGHT - 130, 'skye').setDepth(5);
 
-      // Cage bars
       this.cageGraphics = this.add.graphics().setDepth(6);
       this.cageGraphics.lineStyle(3, 0x888888);
       for (let i = 0; i < 5; i++) {
@@ -263,10 +302,12 @@ export default class GameScene extends Phaser.Scene {
       this.cageGraphics.lineBetween(bossX + 278, GAME_HEIGHT - 100, bossX + 330, GAME_HEIGHT - 100);
     }
 
-    // Boss barrier - blocks access to exit until boss is defeated
-    this.bossBarrier = this.add.rectangle(bossX + 150, GAME_HEIGHT / 2, 16, GAME_HEIGHT, 0xff0000, 0);
-    this.physics.add.existing(this.bossBarrier, true);
-    this.physics.add.collider(this.player, this.bossBarrier);
+    // Boss barrier - only for full boss fight (stage 3)
+    if (!level.miniBoss) {
+      this.bossBarrier = this.add.rectangle(bossX + 150, GAME_HEIGHT / 2, 16, GAME_HEIGHT, 0xff0000, 0);
+      this.physics.add.existing(this.bossBarrier, true);
+      this.physics.add.collider(this.player, this.bossBarrier);
+    }
 
     // Boss character
     this.boss = this.physics.add.sprite(bossX, GAME_HEIGHT - 100, 'boss');
@@ -284,7 +325,16 @@ export default class GameScene extends Phaser.Scene {
 
     // Boss health tracking
     this.bossHitsRemaining = this.bossHP;
-    this.bossPlayerHits = 0;
+
+    // Net-vs-boss overlap (persistent)
+    this.netBossOverlap = this.physics.add.overlap(this.nets, this.boss, (net, boss) => {
+      if (!net.active) return;
+      net.setActive(false).setVisible(false);
+      net.body.enable = false;
+      if (this.bossState === 'vulnerable') {
+        this.hitBossWithNet();
+      }
+    });
   }
 
   startBossFight() {
@@ -298,11 +348,10 @@ export default class GameScene extends Phaser.Scene {
   bossCycle() {
     if (this.bossState === 'defeated') return;
 
-    // Boss approaches Chase
     this.bossState = 'approaching';
     const bossSpeed = this.levelData.bossSpeed || 80;
 
-    // Boss moves toward player
+    // Boss moves toward player (X-direction only; Y tracked in update())
     this.bossApproachTimer = this.time.addEvent({
       delay: 50,
       repeat: -1,
@@ -320,8 +369,9 @@ export default class GameScene extends Phaser.Scene {
       this.bossCollider = this.physics.add.overlap(this.player, this.boss, this.bossHitPlayer, null, this);
     }
 
-    // After chasing for 2.5s, boss gets tired
-    const tiredTimer = this.time.delayedCall(2500, () => {
+    // Boss gets tired after chase duration
+    const tiredDelay = this.levelData.miniBoss ? 1500 : 2500;
+    const tiredTimer = this.time.delayedCall(tiredDelay, () => {
       if (this.bossState === 'defeated') return;
       this.bossState = 'vulnerable';
       this.boss.setVelocityX(0);
@@ -337,8 +387,8 @@ export default class GameScene extends Phaser.Scene {
         repeat: -1,
       });
 
-      // Show paw prompt
-      this.bossPrompt = this.add.text(this.boss.x, this.boss.y - 60, 'USE PAW! (X)', {
+      // Show net prompt
+      this.bossPrompt = this.add.text(this.boss.x, this.boss.y - 60, 'USE NET! (X)', {
         fontSize: '16px',
         fill: '#ffff00',
         fontFamily: 'monospace',
@@ -368,7 +418,7 @@ export default class GameScene extends Phaser.Scene {
 
   bossHitPlayer() {
     if (this.bossState === 'defeated' || this.bossState === 'vulnerable') return;
-    if (this.isInvincible) return;
+    if (this.isInvincible || this.cinematicMode || this.isTransitioning) return;
 
     const state = this.registry.get('state');
     const sfx = this.registry.get('sfx');
@@ -378,7 +428,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.isInvincible = true;
 
-    // Bounce player back
     const bounceDir = this.player.x < this.boss.x ? -1 : 1;
     this.player.setVelocityX(bounceDir * 250);
     this.player.setVelocityY(BOUNCE_VELOCITY);
@@ -391,7 +440,7 @@ export default class GameScene extends Phaser.Scene {
       duration: 150,
       yoyo: true,
       repeat: 7,
-      onComplete: () => this.player.setAlpha(1),
+      onComplete: () => { if (this.player) this.player.setAlpha(1); },
     });
 
     const invTimer = this.time.delayedCall(INVINCIBILITY_MS, () => {
@@ -404,7 +453,7 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  hitBossWithPaw() {
+  hitBossWithNet() {
     if (this.bossState !== 'vulnerable') return;
 
     const sfx = this.registry.get('sfx');
@@ -416,14 +465,15 @@ export default class GameScene extends Phaser.Scene {
     // Flash boss red
     this.boss.setTint(0xff0000);
     this.cameras.main.shake(200, 0.005);
-    this.time.delayedCall(200, () => {
-      if (this.boss) this.boss.clearTint();
+    const tintTimer = this.time.delayedCall(200, () => {
+      if (this.boss && this.boss.active) this.boss.clearTint();
     });
+    this.pendingTimers.push(tintTimer);
 
     if (this.bossHitsRemaining <= 0) {
       this.bossDefeated();
     } else {
-      // Boss shrinks a bit each hit
+      // Boss shrinks each hit
       const scale = 1 - (this.bossHP - this.bossHitsRemaining) * 0.15;
       this.boss.setScale(Math.max(0.4, scale));
       this.bossCycle();
@@ -431,10 +481,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   endBossVulnerability() {
-    this.boss.clearTint();
-    this.boss.setAlpha(1);
-    this.tweens.killTweensOf(this.boss);
+    if (this.boss && this.boss.active) {
+      this.boss.clearTint();
+      this.boss.setAlpha(1);
+      this.tweens.killTweensOf(this.boss);
+    }
     if (this.bossPrompt) {
+      this.tweens.killTweensOf(this.bossPrompt);
       this.bossPrompt.destroy();
       this.bossPrompt = null;
     }
@@ -442,15 +495,41 @@ export default class GameScene extends Phaser.Scene {
 
   bossDefeated() {
     this.bossState = 'defeated';
+    this.endBossVulnerability();
     this.cancelAllTimers();
+    this.cinematicMode = true;
 
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('victory');
 
+    // Remove boss collider
+    if (this.bossCollider) {
+      this.physics.world.removeCollider(this.bossCollider);
+      this.bossCollider = null;
+    }
+
     // Remove barrier
     if (this.bossBarrier) this.bossBarrier.destroy();
 
-    // Boss spins and flies off
+    if (this.levelData.miniBoss) {
+      // Mini-boss: disable body and flee via tween
+      this.boss.body.enable = false;
+      this.tweens.add({
+        targets: this.boss,
+        x: this.boss.x + 600,
+        alpha: 0,
+        duration: 2000,
+        ease: 'Power2',
+        onComplete: () => { if (this.boss) this.boss.destroy(); },
+      });
+
+      this.showStageTransitionArrow();
+      this.cinematicMode = false; // allow player to move to exit
+      return;
+    }
+
+    // Full boss (stage 3): spin and fly off
+    this.boss.body.enable = false;
     this.tweens.add({
       targets: this.boss,
       alpha: 0,
@@ -459,119 +538,135 @@ export default class GameScene extends Phaser.Scene {
       y: this.boss.y - 200,
       duration: 800,
       ease: 'Power2',
-      onComplete: () => this.boss.destroy(),
+      onComplete: () => { if (this.boss) this.boss.destroy(); },
     });
 
-    // Remove boss collider
-    if (this.bossCollider) {
-      this.physics.world.removeCollider(this.bossCollider);
-      this.bossCollider = null;
-    }
-
-    // Free Skye if present
+    // Free Skye if present (stage 3 end sequence)
     if (this.levelData.hasSkye && this.skye) {
       this.time.delayedCall(600, () => {
-        // Cage disappears
+        // Cage swings open
         if (this.cageGraphics) {
           this.tweens.add({
             targets: this.cageGraphics,
             alpha: 0,
-            duration: 400,
+            scaleX: 0.1,
+            duration: 600,
+            ease: 'Back.easeIn',
           });
         }
 
-        // Skye bounce celebration
+        // Create overlap zone at Skye — player must walk there
+        this.skyeZone = this.add.rectangle(this.skye.x, this.skye.y, 80, 80, 0x00ff00, 0);
+        this.physics.add.existing(this.skyeZone, true);
+        this.physics.add.overlap(this.player, this.skyeZone, this.onReachSkye, null, this);
+
+        // Bouncing arrow pointing toward Skye
+        const arrowX = this.skye.x - 60;
+        const arrowY = this.skye.y - 50;
+        this.skyeArrow = this.add.image(arrowX, arrowY, 'stage-arrow').setDepth(20);
         this.tweens.add({
-          targets: this.skye,
-          y: this.skye.y - 30,
-          duration: 300,
+          targets: this.skyeArrow,
+          y: arrowY - 15,
+          duration: 600,
           yoyo: true,
-          repeat: 3,
-          ease: 'Bounce.easeOut',
+          repeat: -1,
+          ease: 'Sine.easeInOut',
         });
 
-        // Victory after celebration
-        this.time.delayedCall(2000, () => {
-          this.cameras.main.fadeOut(500, 0, 0, 0);
-          this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.cleanup();
-            this.scene.stop('UIScene');
-            this.scene.start('VictoryScene');
-          });
-        });
+        // Allow player to walk (cinematicMode still blocks damage but allows movement)
       });
     }
-    // Non-final bosses: path is now clear, player continues to exit
   }
 
-  // --- PAW ATTACK ---
+  onReachSkye() {
+    if (this.skyeReached) return;
+    this.skyeReached = true;
+    this.isTransitioning = true;
 
-  doPawAttack() {
-    if (this.pawOnCooldown) return;
+    if (this.skyeArrow) this.skyeArrow.destroy();
+
+    this.player.setVelocityX(0);
+
+    // Both Chase and Skye bounce together
+    this.tweens.add({
+      targets: [this.player, this.skye],
+      y: '-=25',
+      duration: 350,
+      yoyo: true,
+      repeat: 5,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.cameras.main.fadeOut(500, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          this.cleanup();
+          this.scene.stop('UIScene');
+          this.scene.start('VictoryScene');
+        });
+      },
+    });
+  }
+
+  showStageTransitionArrow() {
+    const arrowX = this.levelData.exitX - 50;
+    const arrowY = GAME_HEIGHT - 100;
+    const arrow = this.add.image(arrowX, arrowY, 'stage-arrow').setDepth(20);
+
+    this.tweens.add({
+      targets: arrow,
+      y: arrowY - 15,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  // --- NET ATTACK ---
+
+  doNetAttack() {
+    if (this.netOnCooldown) return;
 
     const sfx = this.registry.get('sfx');
-    if (sfx) sfx.play('paw');
+    if (sfx) sfx.play('net');
 
-    this.pawOnCooldown = true;
+    this.netOnCooldown = true;
 
-    // Create a hitbox in front of Chase
     const dir = this.player.flipX ? -1 : 1;
-    const hbX = this.player.x + dir * PAW_ATTACK_RANGE;
-    const hbY = this.player.y;
+    const startX = this.player.x + dir * 20;
+    const startY = this.player.y;
 
-    // Visual swipe effect
-    const swipe = this.add.circle(hbX, hbY, 16, COLORS.PAW_RED, 0.6).setDepth(15);
-    this.tweens.add({
-      targets: swipe,
-      scale: 1.8,
-      alpha: 0,
-      duration: PAW_ATTACK_DURATION,
-      onComplete: () => swipe.destroy(),
+    const net = this.nets.get(startX, startY, 'net-projectile');
+    if (!net) return; // pool exhausted
+
+    net.setActive(true).setVisible(true);
+    net.body.enable = true;
+    net.body.reset(startX, startY);
+    net.body.setAllowGravity(false);
+    net.setVelocityX(dir * NET_SPEED);
+    net.setDepth(15);
+    net.originX = startX;
+
+    const cooldownTimer = this.time.delayedCall(NET_COOLDOWN, () => {
+      this.netOnCooldown = false;
     });
-
-    // Temporary physics hitbox
-    const hitbox = this.add.rectangle(hbX, hbY, 32, 32, 0xff0000, 0);
-    this.physics.add.existing(hitbox, false);
-    hitbox.body.setAllowGravity(false);
-
-    // Check overlap with enemies
-    const enemyOverlap = this.physics.add.overlap(hitbox, this.enemies, (hb, enemy) => {
-      this.defeatEnemy(enemy);
-    });
-
-    // Check overlap with boss
-    if (this.boss && this.bossState === 'vulnerable') {
-      const bossOverlap = this.physics.add.overlap(hitbox, this.boss, () => {
-        this.hitBossWithPaw();
-        this.physics.world.removeCollider(bossOverlap);
-      });
-
-      this.time.delayedCall(PAW_ATTACK_DURATION, () => {
-        this.physics.world.removeCollider(bossOverlap);
-      });
-    }
-
-    // Remove hitbox after duration
-    this.time.delayedCall(PAW_ATTACK_DURATION, () => {
-      this.physics.world.removeCollider(enemyOverlap);
-      hitbox.destroy();
-    });
-
-    // Cooldown
-    this.time.delayedCall(PAW_ATTACK_COOLDOWN, () => {
-      this.pawOnCooldown = false;
-    });
+    this.pendingTimers.push(cooldownTimer);
   }
 
   // --- ENEMY INTERACTIONS ---
 
   defeatEnemy(enemy) {
     if (!enemy || !enemy.active) return;
+    enemy.active = false;
+    enemy.body.enable = false;
+    this.enemies.remove(enemy, false, false);
 
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('stomp');
 
-    enemy.body.enable = false;
+    // Update kitty counter
+    const state = this.registry.get('state');
+    state.captureKitty();
+    this.game.events.emit('kitty-captured', state.kittiesCaptured);
 
     // Spin and fly off
     this.tweens.add({
@@ -590,24 +685,28 @@ export default class GameScene extends Phaser.Scene {
   playerEnemyCollision(player, enemy) {
     if (!enemy.active || !enemy.body.enable) return;
 
-    // Check if player is stomping (falling onto enemy from above)
+    // Robust stomp detection: compare vertical vs horizontal overlap
+    const overlapFromTop = player.body.bottom - enemy.body.top;
+    const overlapFromLeft = player.body.right - enemy.body.left;
+    const overlapFromRight = enemy.body.right - player.body.left;
+    const horizontalOverlap = Math.min(overlapFromLeft, overlapFromRight);
+
     const isStomping = player.body.velocity.y > 0 &&
-      player.body.bottom <= enemy.body.top + 16;
+      overlapFromTop > 0 &&
+      overlapFromTop < enemy.body.halfHeight &&
+      overlapFromTop < horizontalOverlap;
 
     if (isStomping) {
-      // Stomp the kitty!
       this.defeatEnemy(enemy);
-      // Bounce player up
       player.setVelocityY(BOUNCE_VELOCITY);
-      this.jumpsRemaining = 2; // Reset double jump after stomp
+      this.jumpsRemaining = 2;
     } else {
-      // Side hit - take damage
       this.hitEnemy(player, enemy);
     }
   }
 
   hitEnemy(player, enemy) {
-    if (this.isInvincible) return;
+    if (this.isInvincible || this.cinematicMode || this.isTransitioning) return;
 
     const state = this.registry.get('state');
     const sfx = this.registry.get('sfx');
@@ -617,7 +716,6 @@ export default class GameScene extends Phaser.Scene {
 
     this.isInvincible = true;
 
-    // Bounce player back
     const bounceDir = player.x < enemy.x ? -1 : 1;
     player.setVelocityX(bounceDir * 200);
     player.setVelocityY(BOUNCE_VELOCITY);
@@ -630,7 +728,7 @@ export default class GameScene extends Phaser.Scene {
       duration: 150,
       yoyo: true,
       repeat: 7,
-      onComplete: () => player.setAlpha(1),
+      onComplete: () => { if (player.active) player.setAlpha(1); },
     });
 
     const invTimer = this.time.delayedCall(INVINCIBILITY_MS, () => {
@@ -644,6 +742,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   restartLevel() {
+    if (this.isTransitioning) return;
+    this.isTransitioning = true;
+    this.cancelAllTimers();
+
     this.time.delayedCall(500, () => {
       this.cameras.main.fadeOut(300, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -662,7 +764,6 @@ export default class GameScene extends Phaser.Scene {
     this.game.events.emit('score-changed', state.treatsCollected);
     if (sfx) sfx.play('collect');
 
-    // Sparkle effect
     const sparkle = this.add.circle(treat.x, treat.y, 12, COLORS.TREAT_GOLD, 0.8);
     this.tweens.add({
       targets: sparkle,
@@ -674,12 +775,13 @@ export default class GameScene extends Phaser.Scene {
   }
 
   reachExit() {
-    if (this.exitReached) return;
+    if (this.exitReached || this.isTransitioning) return;
 
     // Block exit if boss is alive
     if (this.levelData.hasBoss && this.bossState !== 'defeated') return;
 
     this.exitReached = true;
+    this.isTransitioning = true;
 
     const state = this.registry.get('state');
     const nextLevel = this.levelIndex + 1;
@@ -706,7 +808,7 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  update() {
+  update(time, delta) {
     if (!this.player || !this.player.body) return;
 
     const player = this.player;
@@ -718,31 +820,41 @@ export default class GameScene extends Phaser.Scene {
     }
     this.wasOnGround = onGround;
 
-    // Accumulate input intent from keyboard + touch
+    // --- Input (allowed even in cinematicMode so player can walk to Skye) ---
     let moveX = 0;
     let wantsJump = false;
-    let wantsPaw = false;
+    let wantsNet = false;
 
-    // Keyboard
-    if (this.cursors.left.isDown) moveX -= 1;
-    if (this.cursors.right.isDown) moveX += 1;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-      wantsJump = true;
-    }
-    if (Phaser.Input.Keyboard.JustDown(this.pawKey)) {
-      wantsPaw = true;
-    }
+    if (!this.isTransitioning) {
+      // Keyboard
+      if (this.cursors.left.isDown) moveX -= 1;
+      if (this.cursors.right.isDown) moveX += 1;
+      if (Phaser.Input.Keyboard.JustDown(this.cursors.up) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+        wantsJump = true;
+      }
+      if (Phaser.Input.Keyboard.JustDown(this.netKey)) {
+        wantsNet = true;
+      }
 
-    // Touch
-    if (this.touchIntent.left) moveX -= 1;
-    if (this.touchIntent.right) moveX += 1;
-    if (this.touchIntent.jump) {
-      wantsJump = true;
-      this.touchIntent.jump = false;
-    }
-    if (this.touchIntent.paw) {
-      wantsPaw = true;
-      this.touchIntent.paw = false;
+      // Touch
+      if (this.touchIntent.left) moveX -= 1;
+      if (this.touchIntent.right) moveX += 1;
+      if (this.touchIntent.jump) {
+        const now = this.time.now;
+        if (now - (this._lastJumpTime || 0) > 150) {
+          wantsJump = true;
+          this._lastJumpTime = now;
+        }
+        this.touchIntent.jump = false;
+      }
+      if (this.touchIntent.net) {
+        const now = this.time.now;
+        if (now - (this._lastNetTime || 0) > 150) {
+          wantsNet = true;
+          this._lastNetTime = now;
+        }
+        this.touchIntent.net = false;
+      }
     }
 
     // Clamp
@@ -759,11 +871,9 @@ export default class GameScene extends Phaser.Scene {
     if (wantsJump && this.jumpsRemaining > 0) {
       const sfx = this.registry.get('sfx');
       if (this.jumpsRemaining === 2) {
-        // First jump
         player.setVelocityY(JUMP_VELOCITY);
         if (sfx) sfx.play('jump');
       } else {
-        // Double jump
         player.setVelocityY(DOUBLE_JUMP_VELOCITY);
         if (sfx) sfx.play('double-jump');
       }
@@ -776,22 +886,48 @@ export default class GameScene extends Phaser.Scene {
       player.setVelocityY(player.body.velocity.y * 0.85);
     }
 
-    // Paw attack
-    if (wantsPaw) {
-      this.doPawAttack();
+    // Net attack
+    if (wantsNet) {
+      this.doNetAttack();
     }
 
-    // Enemy patrol behavior
+    // Net distance check — deactivate nets that have traveled max distance
+    this.nets.getChildren().forEach((net) => {
+      if (!net.active) return;
+      if (Math.abs(net.x - net.originX) >= NET_MAX_DISTANCE) {
+        net.setActive(false).setVisible(false);
+        net.body.enable = false;
+      }
+    });
+
+    // Enemy patrol behavior with velocity recovery
     this.enemies.getChildren().forEach((kitty) => {
       if (!kitty.active || !kitty.body || !kitty.body.enable) return;
-      if (kitty.x <= kitty.patrolLeft) {
+
+      if (kitty.x <= kitty.patrolLeft && kitty.body.velocity.x <= 0) {
         kitty.setVelocityX(kitty.speed);
         kitty.setFlipX(false);
-      } else if (kitty.x >= kitty.patrolRight) {
+      } else if (kitty.x >= kitty.patrolRight && kitty.body.velocity.x >= 0) {
         kitty.setVelocityX(-kitty.speed);
         kitty.setFlipX(true);
       }
+
+      // Safety: recover from zeroed velocity
+      if (kitty.body.velocity.x === 0) {
+        const center = (kitty.patrolLeft + kitty.patrolRight) / 2;
+        const dir = kitty.x < center ? 1 : -1;
+        kitty.setVelocityX(dir * kitty.speed);
+        kitty.setFlipX(dir < 0);
+      }
     });
+
+    // Boss Y-tracking — smooth delta-time-corrected lerp in update
+    if (this.boss && this.boss.active &&
+        (this.bossState === 'approaching' || this.bossState === 'vulnerable')) {
+      const targetY = this.playerGroundY - 32;
+      const lerpFactor = 1 - Math.pow(0.85, (delta || 16.67) / 16.67);
+      this.boss.y = Phaser.Math.Linear(this.boss.y, targetY, lerpFactor);
+    }
 
     // Safety: if player falls below world
     if (player.y > GAME_HEIGHT + 50) {
@@ -809,6 +945,7 @@ export default class GameScene extends Phaser.Scene {
 
   cleanup() {
     this.cancelAllTimers();
+    this.tweens.killAll();
     this.game.events.off('hidden', this.onHidden, this);
     this.game.events.off('visible', this.onVisible, this);
   }

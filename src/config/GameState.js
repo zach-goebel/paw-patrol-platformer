@@ -4,6 +4,7 @@ const INITIAL = {
   currentLevel: 0,
   score: 0,
   treatsCollected: 0,
+  kittiesCaptured: 0,
   health: MAX_HEALTH,
 };
 
@@ -17,7 +18,12 @@ export default class GameState {
   }
 
   resetHealth() {
+    // Per-level reset. Does NOT reset cross-level progress (treats, kitties).
     this.health = MAX_HEALTH;
+  }
+
+  captureKitty() {
+    this.kittiesCaptured++;
   }
 
   addScore(points) {
