@@ -1,8 +1,13 @@
 // Player tuning
 export const PLAYER_SPEED = 120;
 export const JUMP_VELOCITY = -350;
+export const DOUBLE_JUMP_VELOCITY = -300;
 export const BOUNCE_VELOCITY = -200;
 export const INVINCIBILITY_MS = 2500;
+export const MAX_HEALTH = 3;
+export const PAW_ATTACK_DURATION = 200;
+export const PAW_ATTACK_COOLDOWN = 500;
+export const PAW_ATTACK_RANGE = 40;
 
 // Physics
 export const GRAVITY = 800;
@@ -65,9 +70,7 @@ export const LEVELS = [
     platformColor: COLORS.PLATFORM_BROWN,
     music: ASSETS.MUSIC_ADVENTURE,
     platforms: [
-      // Ground (always present, continuous)
       { x: 0, y: 448, w: 3200, h: 32 },
-      // Floating platforms
       { x: 300, y: 350, w: 160, h: 32 },
       { x: 550, y: 300, w: 128, h: 32 },
       { x: 800, y: 350, w: 192, h: 32 },
@@ -85,7 +88,7 @@ export const LEVELS = [
       { x: 2400, y: 416, patrolLeft: 2300, patrolRight: 2550 },
     ],
     collectibles: [
-      { x: 200, y: 416 },
+      { x: 200, y: 410 },
       { x: 350, y: 318 },
       { x: 400, y: 318 },
       { x: 600, y: 268 },
@@ -99,10 +102,14 @@ export const LEVELS = [
       { x: 2250, y: 248 },
       { x: 2550, y: 318 },
       { x: 2600, y: 318 },
-      { x: 2800, y: 416 },
+      { x: 2800, y: 410 },
     ],
     exitX: 3100,
-    hasBoss: false,
+    hasBoss: true,
+    bossX: 2900,
+    bossHP: 2,
+    bossSpeed: 60,
+    hasSkye: false,
   },
   {
     key: 'foggy-bottom',
@@ -133,7 +140,7 @@ export const LEVELS = [
       { x: 2600, y: 416, patrolLeft: 2450, patrolRight: 2700 },
     ],
     collectibles: [
-      { x: 150, y: 416 },
+      { x: 150, y: 410 },
       { x: 300, y: 328 },
       { x: 500, y: 268 },
       { x: 750, y: 328 },
@@ -146,11 +153,15 @@ export const LEVELS = [
       { x: 2000, y: 228 },
       { x: 2250, y: 308 },
       { x: 2550, y: 248 },
-      { x: 2700, y: 416 },
-      { x: 2800, y: 416 },
+      { x: 2700, y: 410 },
+      { x: 2800, y: 410 },
     ],
     exitX: 3100,
-    hasBoss: false,
+    hasBoss: true,
+    bossX: 2900,
+    bossHP: 3,
+    bossSpeed: 80,
+    hasSkye: false,
   },
   {
     key: 'humdinger-lair',
@@ -176,7 +187,7 @@ export const LEVELS = [
       { x: 1600, y: 416, patrolLeft: 1450, patrolRight: 1700 },
     ],
     collectibles: [
-      { x: 150, y: 416 },
+      { x: 150, y: 410 },
       { x: 250, y: 328 },
       { x: 500, y: 268 },
       { x: 750, y: 328 },
@@ -188,5 +199,8 @@ export const LEVELS = [
     exitX: 2200,
     hasBoss: true,
     bossX: 2000,
+    bossHP: 3,
+    bossSpeed: 100,
+    hasSkye: true,
   },
 ];

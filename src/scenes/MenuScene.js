@@ -40,8 +40,8 @@ export default class MenuScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    // Chase character on the left
-    this.add.image(160, GAME_HEIGHT - 112, 'player').setScale(3);
+    // Chase character on the left (64x64 sprite, scale 1.5 for menu)
+    this.add.image(160, GAME_HEIGHT - 112, 'player').setScale(1.5);
 
     // Play button - giant pulsing icon
     const playBtn = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'play-icon')
@@ -103,13 +103,31 @@ export default class MenuScene extends Phaser.Scene {
     this.registry.get('state').reset();
 
     // Audio unlock happens on user gesture (this tap)
-    // Phaser handles WebAudio context resume internally
+    const sfx = this.registry.get('sfx');
+    if (sfx) sfx.resume();
     this.audioState = AUDIO_READY;
+
+    // Start theme music (loops throughout the game)
+    if (!this.registry.get('themeMusic')) {
+      const theme = this.sound.add('theme', { loop: true, volume: 0.4 });
+      this.registry.set('themeMusic', theme);
+    }
+    const theme = this.registry.get('themeMusic');
+    if (theme && !theme.isPlaying) {
+      theme.play();
+    }
 
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('GameScene', { level: 0 });
+      // Show tutorial on first play, skip on replays
+      const hasSeenTutorial = this.registry.get('hasSeenTutorial');
+      if (!hasSeenTutorial) {
+        this.registry.set('hasSeenTutorial', true);
+        this.scene.start('TutorialScene');
+      } else {
+        this.scene.start('GameScene', { level: 0 });
+      }
     });
   }
 }

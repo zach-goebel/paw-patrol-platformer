@@ -46,95 +46,35 @@ export default class PreloadScene extends Phaser.Scene {
       this.loadErrors.push(fileObj.key);
     });
 
-    // Generate placeholder graphics as textures
+    // Load external character sprites (64x64)
+    this.load.image('player', 'assets/images/chase.png');
+    this.load.image('kitty', 'assets/images/kitty.png');
+    this.load.image('boss', 'assets/images/humdinger.png');
+    this.load.image('skye', 'assets/images/skye.png');
+
+    // Load music
+    this.load.audio('theme', 'assets/audio/theme.mp3');
+
+    // Load tiling backgrounds (800x480)
+    this.load.image('bg-adventure-bay', 'assets/images/bg-adventure-bay.png');
+    this.load.image('bg-foggy-bottom', 'assets/images/bg-foggy-bottom.png');
+    this.load.image('bg-humdinger-lair', 'assets/images/bg-humdinger-lair.png');
+
+    // Generate procedural textures for UI and treat (keeping the bone)
     this.createPlaceholderTextures();
   }
 
   createPlaceholderTextures() {
-    // Player (Chase) - blue rectangle with police hat shape
-    const playerGfx = this.make.graphics({ add: false });
-    playerGfx.fillStyle(COLORS.CHASE_BLUE);
-    playerGfx.fillRect(4, 8, 24, 24);
-    // Hat
-    playerGfx.fillStyle(0x1a5276);
-    playerGfx.fillRect(6, 2, 20, 8);
-    playerGfx.fillStyle(COLORS.TREAT_GOLD);
-    playerGfx.fillRect(12, 4, 8, 4);
-    // Eyes
-    playerGfx.fillStyle(0xffffff);
-    playerGfx.fillRect(10, 14, 4, 4);
-    playerGfx.fillRect(18, 14, 4, 4);
-    playerGfx.fillStyle(0x000000);
-    playerGfx.fillRect(12, 14, 2, 4);
-    playerGfx.fillRect(20, 14, 2, 4);
-    playerGfx.generateTexture('player', 32, 32);
-    playerGfx.destroy();
-
-    // Kitty enemy - purple rectangle with ears
-    const kittyGfx = this.make.graphics({ add: false });
-    kittyGfx.fillStyle(COLORS.KITTY_PURPLE);
-    kittyGfx.fillRect(6, 10, 20, 20);
-    // Ears
-    kittyGfx.fillTriangle(6, 10, 6, 2, 14, 10);
-    kittyGfx.fillTriangle(26, 10, 26, 2, 18, 10);
-    // Eyes
-    kittyGfx.fillStyle(0xf1c40f);
-    kittyGfx.fillRect(10, 16, 4, 4);
-    kittyGfx.fillRect(18, 16, 4, 4);
-    kittyGfx.generateTexture('kitty', 32, 32);
-    kittyGfx.destroy();
-
-    // Treat collectible - golden bone shape
+    // Treat collectible - golden bone shape (keeping procedural)
     const treatGfx = this.make.graphics({ add: false });
     treatGfx.fillStyle(COLORS.TREAT_GOLD);
-    // Bone body
     treatGfx.fillRect(8, 12, 16, 8);
-    // Bone ends
     treatGfx.fillCircle(8, 12, 4);
     treatGfx.fillCircle(8, 20, 4);
     treatGfx.fillCircle(24, 12, 4);
     treatGfx.fillCircle(24, 20, 4);
     treatGfx.generateTexture('treat', 32, 32);
     treatGfx.destroy();
-
-    // Boss (Humdinger) - larger purple character with top hat
-    const bossGfx = this.make.graphics({ add: false });
-    bossGfx.fillStyle(COLORS.HUMDINGER_PURPLE);
-    bossGfx.fillRect(8, 16, 48, 40);
-    // Top hat
-    bossGfx.fillStyle(0x1c1c1c);
-    bossGfx.fillRect(16, 0, 32, 20);
-    bossGfx.fillRect(12, 16, 40, 4);
-    // Eyes
-    bossGfx.fillStyle(0xffffff);
-    bossGfx.fillRect(18, 24, 8, 6);
-    bossGfx.fillRect(38, 24, 8, 6);
-    bossGfx.fillStyle(0x000000);
-    bossGfx.fillRect(22, 24, 4, 6);
-    bossGfx.fillRect(42, 24, 4, 6);
-    // Smirk
-    bossGfx.lineStyle(2, 0x000000);
-    bossGfx.lineBetween(24, 38, 40, 34);
-    bossGfx.generateTexture('boss', 64, 64);
-    bossGfx.destroy();
-
-    // Skye - pink character with helmet
-    const skyeGfx = this.make.graphics({ add: false });
-    skyeGfx.fillStyle(0xff69b4);
-    skyeGfx.fillRect(4, 8, 24, 24);
-    // Helmet
-    skyeGfx.fillStyle(0xff1493);
-    skyeGfx.fillRect(6, 2, 20, 10);
-    // Goggles
-    skyeGfx.fillStyle(0x00bfff);
-    skyeGfx.fillRect(8, 6, 6, 4);
-    skyeGfx.fillRect(18, 6, 6, 4);
-    // Eyes
-    skyeGfx.fillStyle(0xffffff);
-    skyeGfx.fillRect(10, 16, 4, 4);
-    skyeGfx.fillRect(18, 16, 4, 4);
-    skyeGfx.generateTexture('skye', 32, 32);
-    skyeGfx.destroy();
 
     // Paw button for boss fight
     const pawGfx = this.make.graphics({ add: false });
@@ -188,6 +128,36 @@ export default class PreloadScene extends Phaser.Scene {
     jumpGfx.fillTriangle(20, 52, 60, 52, 40, 22);
     jumpGfx.generateTexture('jump-button', arrowSize, arrowSize);
     jumpGfx.destroy();
+
+    // Heart icon for health HUD
+    const heartGfx = this.make.graphics({ add: false });
+    heartGfx.fillStyle(COLORS.PAW_RED);
+    heartGfx.fillCircle(8, 6, 6);
+    heartGfx.fillCircle(16, 6, 6);
+    heartGfx.fillTriangle(2, 8, 22, 8, 12, 20);
+    heartGfx.generateTexture('heart', 24, 22);
+    heartGfx.destroy();
+
+    // Empty heart icon
+    const heartEmptyGfx = this.make.graphics({ add: false });
+    heartEmptyGfx.lineStyle(2, 0x666666);
+    heartEmptyGfx.strokeCircle(8, 6, 6);
+    heartEmptyGfx.strokeCircle(16, 6, 6);
+    heartEmptyGfx.strokeTriangle(2, 8, 22, 8, 12, 20);
+    heartEmptyGfx.generateTexture('heart-empty', 24, 22);
+    heartEmptyGfx.destroy();
+
+    // Touch paw attack button (smaller version)
+    const pawTouchGfx = this.make.graphics({ add: false });
+    pawTouchGfx.fillStyle(COLORS.PAW_RED, 0.7);
+    pawTouchGfx.fillCircle(40, 40, 40);
+    pawTouchGfx.fillStyle(0xffffff);
+    pawTouchGfx.fillCircle(40, 44, 16);
+    pawTouchGfx.fillCircle(28, 28, 6);
+    pawTouchGfx.fillCircle(40, 22, 6);
+    pawTouchGfx.fillCircle(52, 28, 6);
+    pawTouchGfx.generateTexture('paw-touch', arrowSize, arrowSize);
+    pawTouchGfx.destroy();
   }
 
   create() {

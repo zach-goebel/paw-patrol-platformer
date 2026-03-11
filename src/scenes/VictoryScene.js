@@ -14,7 +14,7 @@ export default class VictoryScene extends Phaser.Scene {
     this.createFireworks();
 
     // Chase celebration
-    const chase = this.add.image(GAME_WIDTH / 2 - 60, GAME_HEIGHT / 2 - 20, 'player').setScale(4);
+    const chase = this.add.image(GAME_WIDTH / 2 - 60, GAME_HEIGHT / 2 - 20, 'player').setScale(2);
     this.tweens.add({
       targets: chase,
       y: chase.y - 20,
@@ -25,7 +25,7 @@ export default class VictoryScene extends Phaser.Scene {
     });
 
     // Skye celebration
-    const skye = this.add.image(GAME_WIDTH / 2 + 60, GAME_HEIGHT / 2 - 20, 'skye').setScale(4);
+    const skye = this.add.image(GAME_WIDTH / 2 + 60, GAME_HEIGHT / 2 - 20, 'skye').setScale(2);
     this.tweens.add({
       targets: skye,
       y: skye.y - 25,
