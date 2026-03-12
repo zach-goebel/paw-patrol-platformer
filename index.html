@@ -44,7 +44,7 @@
       .dpad {
         display: flex;
         align-items: center;
-        height: 44px;
+        height: 52px;
         background: linear-gradient(180deg, #555 0%, #444 50%, #333 100%);
         border-radius: 8px;
         border: 1px solid #666;
@@ -52,16 +52,27 @@
       }
 
       .dpad button {
-        width: 48px;
-        height: 44px;
+        width: 58px;
+        height: 52px;
         background: transparent;
         border: none;
         color: #aaa;
-        font-size: 20px;
+        font-size: 24px;
         touch-action: manipulation;
         user-select: none;
         -webkit-user-select: none;
         -webkit-tap-highlight-color: transparent;
+        position: relative;
+      }
+
+      /* Invisible extended touch targets */
+      .dpad button::after {
+        content: '';
+        position: absolute;
+        top: -8px;
+        left: -6px;
+        right: -6px;
+        bottom: -8px;
       }
 
       .dpad button:active {
@@ -83,11 +94,11 @@
       }
 
       .actions button {
-        width: 50px;
-        height: 50px;
+        width: 58px;
+        height: 58px;
         border-radius: 50%;
         border: 3px solid;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: bold;
         font-family: monospace;
         touch-action: manipulation;
@@ -98,6 +109,25 @@
         transition: transform 0.05s;
         color: #fff;
         text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        position: relative;
+      }
+
+      /* Invisible extended touch targets for action buttons */
+      .actions button::after {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+      }
+
+      /* Extra-large touch target for jump button */
+      #btn-jump::after {
+        top: -14px;
+        left: -14px;
+        right: -14px;
+        bottom: -14px;
       }
 
       .actions button:active {
@@ -116,6 +146,9 @@
       #btn-jump {
         background: linear-gradient(180deg, #e74c3c 0%, #c0392b 100%);
         border-color: #f1948a;
+        width: 66px;
+        height: 66px;
+        font-size: 16px;
       }
       #btn-jump:active {
         background: linear-gradient(180deg, #f1948a 0%, #e74c3c 100%);
@@ -127,6 +160,70 @@
         font-size: 8px;
         opacity: 0.7;
         margin-top: 1px;
+      }
+
+      /* Side panels for landscape mode */
+      .controller-side {
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 8px;
+        background: linear-gradient(180deg, #d4d4d8 0%, #bcbcc4 40%, #a8a8b2 100%);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5);
+        flex: 0 0 auto;
+      }
+
+      #controller-left {
+        border-radius: 18px 0 0 18px;
+        border-right: 2px solid #e0e0e6;
+      }
+
+      #controller-right {
+        border-radius: 0 18px 18px 0;
+        border-left: 2px solid #e0e0e6;
+      }
+
+      /* Landscape mode */
+      #game-wrapper.landscape {
+        flex-direction: row;
+        align-items: stretch;
+        height: 100vh;
+        height: 100dvh;
+      }
+
+      #game-wrapper.landscape canvas {
+        min-width: 0;
+        max-height: 100vh;
+        max-height: 100dvh;
+      }
+
+      #game-wrapper.landscape .controller-side {
+        display: flex;
+      }
+
+      #game-wrapper.landscape #controller-bar {
+        display: none;
+      }
+
+      #game-wrapper.landscape .actions {
+        flex-direction: column;
+      }
+
+      #game-wrapper.landscape .dpad {
+        flex-direction: column;
+        height: auto;
+        width: 52px;
+      }
+
+      #game-wrapper.landscape .dpad button {
+        width: 52px;
+        height: 52px;
+      }
+
+      #game-wrapper.landscape .dpad-divider {
+        width: 36px;
+        height: 1px;
       }
     </style>
   </head>

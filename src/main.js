@@ -71,7 +71,19 @@ if (isTouchDevice) {
     const wrapper = document.createElement('div');
     wrapper.id = 'game-wrapper';
     canvas.parentNode.insertBefore(wrapper, canvas);
+
+    // Create side panels for landscape mode
+    const leftPanel = document.createElement('div');
+    leftPanel.id = 'controller-left';
+    leftPanel.className = 'controller-side';
+    wrapper.appendChild(leftPanel);
+
     wrapper.appendChild(canvas);
+
+    const rightPanel = document.createElement('div');
+    rightPanel.id = 'controller-right';
+    rightPanel.className = 'controller-side';
+    wrapper.appendChild(rightPanel);
 
     const bar = document.createElement('div');
     bar.id = 'controller-bar';
@@ -88,6 +100,27 @@ if (isTouchDevice) {
     `;
     wrapper.appendChild(bar);
 
+    const dpad = bar.querySelector('.dpad');
+    const actions = bar.querySelector('.actions');
+
+    // Switch between portrait (bottom bar) and landscape (side panels) layouts
+    function applyLayout(isLandscape) {
+      if (isLandscape) {
+        wrapper.classList.add('landscape');
+        leftPanel.appendChild(dpad);
+        rightPanel.appendChild(actions);
+      } else {
+        wrapper.classList.remove('landscape');
+        bar.appendChild(dpad);
+        bar.appendChild(actions);
+      }
+      requestAnimationFrame(() => game.scale.refresh());
+    }
+
+    const orientationQuery = window.matchMedia('(orientation: landscape)');
+    orientationQuery.addEventListener('change', (e) => applyLayout(e.matches));
+    applyLayout(orientationQuery.matches);
+
     game.registry.set('touchButtons', {
       left: document.getElementById('btn-left'),
       right: document.getElementById('btn-right'),
@@ -96,8 +129,10 @@ if (isTouchDevice) {
     });
 
     // Any controller button press emits 'controller-press' for menu navigation
-    bar.addEventListener('touchstart', () => {
-      game.events.emit('controller-press');
+    [bar, leftPanel, rightPanel].forEach((el) => {
+      el.addEventListener('touchstart', () => {
+        game.events.emit('controller-press');
+      });
     });
 
     // Fix: refresh Phaser's scale manager after DOM manipulation
