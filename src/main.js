@@ -78,7 +78,11 @@ if (isTouchDevice) {
     leftPanel.className = 'controller-side';
     wrapper.appendChild(leftPanel);
 
-    wrapper.appendChild(canvas);
+    // Wrap canvas in its own container so Phaser scales to the middle area
+    const gameContainer = document.createElement('div');
+    gameContainer.id = 'game-container';
+    gameContainer.appendChild(canvas);
+    wrapper.appendChild(gameContainer);
 
     const rightPanel = document.createElement('div');
     rightPanel.id = 'controller-right';

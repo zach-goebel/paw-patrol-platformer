@@ -17,10 +17,19 @@
         max-height: 100dvh;
       }
 
-      #game-wrapper canvas {
+      #game-container {
         flex: 1 1 auto;
         min-height: 0;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      #game-container canvas {
         max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
       }
 
@@ -193,12 +202,9 @@
         height: 100dvh;
       }
 
-      #game-wrapper.landscape canvas {
+      #game-wrapper.landscape #game-container {
         flex: 1 1 0;
         min-width: 0;
-        max-height: 100vh;
-        max-height: 100dvh;
-        object-fit: contain;
       }
 
       #game-wrapper.landscape .controller-side {
