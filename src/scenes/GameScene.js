@@ -33,6 +33,7 @@ export default class GameScene extends Phaser.Scene {
     this.bossState = 'inactive';
     this.bossActive = false;
     this.bossHP = this.levelData.bossHP || 3;
+    this.bossHitRegistered = false;
 
     // Player ground level (for boss Y-tracking)
     this.playerGroundY = GAME_HEIGHT - 100;
@@ -326,20 +327,25 @@ export default class GameScene extends Phaser.Scene {
     // Boss health tracking
     this.bossHitsRemaining = this.bossHP;
 
-    // Net-vs-boss overlap (persistent)
-    this.netBossOverlap = this.physics.add.overlap(this.nets, this.boss, (net, boss) => {
-      if (!net.active) return;
-      if (this.bossState === 'vulnerable') {
-        // Hit! Consume the net and damage boss
+    // Net-vs-boss overlap (persistent, with processCallback guard)
+    this.netBossOverlap = this.physics.add.overlap(
+      this.nets,
+      this.boss,
+      // overlapCallback — only fires when processCallback returns true
+      (net) => {
         net.setActive(false).setVisible(false);
         net.body.enable = false;
         this.hitBossWithNet();
-      } else {
-        // Bounce off! Net reflects back
+      },
+      // processCallback — guards against multi-hit and handles bounce-off
+      (net) => {
+        if (!net.active) return false;
+        if (this.bossState === 'vulnerable' && !this.bossHitRegistered) {
+          return true; // allow hit
+        }
+        // Bounce off: reverse net, grey flash on boss
         net.setVelocityX(-net.body.velocity.x);
-        net.originX = net.x; // reset origin so distance check works from bounce point
-
-        // Visual flash on boss to show it didn't work
+        net.originX = net.x;
         if (this.boss && this.boss.active) {
           this.boss.setTint(0xaaaaaa);
           this.time.delayedCall(150, () => {
@@ -348,8 +354,10 @@ export default class GameScene extends Phaser.Scene {
             }
           });
         }
-      }
-    });
+        return false;
+      },
+      this
+    );
   }
 
   startBossFight() {
@@ -361,9 +369,24 @@ export default class GameScene extends Phaser.Scene {
   }
 
   bossCycle() {
-    if (this.bossState === 'defeated') return;
+    if (this.bossState === 'defeated' || this.bossState === 'hit-stun') return;
+
+    // Clean up timers from previous cycle before creating new ones
+    if (this.bossApproachTimer) {
+      this.bossApproachTimer.remove(false);
+      this.bossApproachTimer = null;
+    }
+    if (this._tiredTimer) {
+      this._tiredTimer.remove(false);
+      this._tiredTimer = null;
+    }
+    if (this._recoverTimer) {
+      this._recoverTimer.remove(false);
+      this._recoverTimer = null;
+    }
 
     this.bossState = 'approaching';
+    this.bossHitRegistered = false;
     const bossSpeed = this.levelData.bossSpeed || 80;
 
     // Boss moves toward player (X-direction only; Y tracked in update())
@@ -386,9 +409,10 @@ export default class GameScene extends Phaser.Scene {
 
     // Boss gets tired after chase duration
     const tiredDelay = this.levelData.miniBoss ? 1500 : 2500;
-    const tiredTimer = this.time.delayedCall(tiredDelay, () => {
-      if (this.bossState === 'defeated') return;
+    this._tiredTimer = this.time.delayedCall(tiredDelay, () => {
+      if (this.bossState === 'defeated' || this.bossState === 'hit-stun') return;
       this.bossState = 'vulnerable';
+      this.bossHitRegistered = false;
       this.boss.setVelocityX(0);
       if (this.bossApproachTimer) this.bossApproachTimer.remove(false);
 
@@ -421,18 +445,18 @@ export default class GameScene extends Phaser.Scene {
       });
 
       // Recover after 3s if not hit
-      const recoverTimer = this.time.delayedCall(3000, () => {
+      this._recoverTimer = this.time.delayedCall(3000, () => {
         if (this.bossState !== 'vulnerable') return;
         this.endBossVulnerability();
         this.bossCycle();
       });
-      this.pendingTimers.push(recoverTimer);
+      this.pendingTimers.push(this._recoverTimer);
     });
-    this.pendingTimers.push(tiredTimer);
+    this.pendingTimers.push(this._tiredTimer);
   }
 
   bossHitPlayer() {
-    if (this.bossState === 'defeated' || this.bossState === 'vulnerable') return;
+    if (this.bossState === 'defeated' || this.bossState === 'vulnerable' || this.bossState === 'hit-stun') return;
     if (this.isInvincible || this.cinematicMode || this.isTransitioning) return;
 
     const state = this.registry.get('state');
@@ -469,7 +493,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   hitBossWithNet() {
-    if (this.bossState !== 'vulnerable') return;
+    if (this.bossState !== 'vulnerable' || this.bossHitRegistered) return;
+    this.bossHitRegistered = true;
+    this.bossState = 'hit-stun'; // MUST be first — prevents re-entry
 
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('boss-hit');
@@ -477,22 +503,71 @@ export default class GameScene extends Phaser.Scene {
     this.bossHitsRemaining--;
     this.endBossVulnerability();
 
-    // Flash boss red
+    // Red flash + strong shake for all hits
     this.boss.setTint(0xff0000);
-    this.cameras.main.shake(200, 0.005);
-    const tintTimer = this.time.delayedCall(200, () => {
-      if (this.boss && this.boss.active) this.boss.clearTint();
-    });
-    this.pendingTimers.push(tintTimer);
+    this.cameras.main.shake(300, 0.01);
 
+    // Final hit — defeat immediately (works for mini-boss 1-hit and full boss last hit)
     if (this.bossHitsRemaining <= 0) {
       this.bossDefeated();
-    } else {
-      // Boss shrinks each hit
-      const scale = 1 - (this.bossHP - this.bossHitsRemaining) * 0.15;
-      this.boss.setScale(Math.max(0.4, scale));
-      this.bossCycle();
+      return;
     }
+
+    // Non-final hit: full feedback sequence with delay before next cycle
+    if (this.boss.body) this.boss.body.enable = false;
+
+    // White flash at 200ms
+    const t1 = this.time.delayedCall(200, () => {
+      if (!this.boss || !this.boss.active) return;
+      this.boss.setTint(0xffffff);
+    });
+    this.pendingTimers.push(t1);
+
+    // Clear tint + shrink at 400ms
+    const t2 = this.time.delayedCall(400, () => {
+      if (!this.boss || !this.boss.active) return;
+      this.boss.clearTint();
+
+      // Re-enable boss body
+      if (this.boss.body) this.boss.body.enable = true;
+
+      // Shrink with bounce
+      const newScale = 1 - (this.bossHP - this.bossHitsRemaining) * 0.15;
+      this.tweens.add({
+        targets: this.boss,
+        scale: Math.max(0.4, newScale),
+        duration: 300,
+        ease: 'Back.easeOut',
+      });
+
+      // Show remaining hits text
+      const hitsText = this.bossHitsRemaining === 1 ? '1 MORE HIT!' : `${this.bossHitsRemaining} MORE HITS!`;
+      const label = this.add.text(this.boss.x, this.boss.y - 70, hitsText, {
+        fontSize: '20px',
+        fill: '#ff4444',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(50);
+
+      this.tweens.add({
+        targets: label,
+        y: label.y - 30,
+        alpha: 0,
+        duration: 1500,
+        ease: 'Power2',
+        onComplete: () => label.destroy(),
+      });
+
+      // Brief pause then restart cycle
+      const t3 = this.time.delayedCall(500, () => {
+        if (this.bossState === 'defeated' || this.bossState !== 'hit-stun') return;
+        this.bossCycle();
+      });
+      this.pendingTimers.push(t3);
+    });
+    this.pendingTimers.push(t2);
   }
 
   endBossVulnerability() {
