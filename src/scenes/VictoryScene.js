@@ -9,6 +9,7 @@ export default class VictoryScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(0x1a1a2e);
     this.cameras.main.fadeIn(500);
+    this._transitioning = false;
 
     // Fireworks / confetti particles
     this.createFireworks();
@@ -70,27 +71,37 @@ export default class VictoryScene extends Phaser.Scene {
         ease: 'Sine.easeInOut',
       });
 
-      playBtn.on('pointerdown', () => {
-        this.cameras.main.fadeOut(300);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start('MenuScene');
-        });
-      });
+      playBtn.on('pointerdown', () => { this.returnToMenu(); });
+
+      // Controller buttons also return to menu (mobile)
+      this._controllerHandler = () => { this.returnToMenu(); };
+      this.game.events.on('controller-press', this._controllerHandler);
     });
 
     // Auto-return to menu after 20 seconds
     this.time.delayedCall(20000, () => {
-      this.cameras.main.fadeOut(500);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('MenuScene');
-      });
+      this.returnToMenu();
+    });
+  }
+
+  returnToMenu() {
+    if (this._transitioning) return;
+    this._transitioning = true;
+
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
+
+    this.cameras.main.fadeOut(300);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('MenuScene');
     });
   }
 
   createFireworks() {
     const colors = [COLORS.PAW_RED, COLORS.BADGE_YELLOW, COLORS.CHASE_BLUE, 0xff69b4];
 
-    // Create bursts of colored circles at random positions
     this.time.addEvent({
       delay: 400,
       repeat: -1,
@@ -117,5 +128,12 @@ export default class VictoryScene extends Phaser.Scene {
         }
       },
     });
+  }
+
+  shutdown() {
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
   }
 }

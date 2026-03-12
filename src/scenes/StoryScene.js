@@ -66,12 +66,21 @@ export default class StoryScene extends Phaser.Scene {
     this._transitioning = false;
     this.input.keyboard.on('keydown', () => this.proceed());
     this.input.on('pointerdown', () => this.proceed());
+
+    // Controller buttons also advance (mobile)
+    this._controllerHandler = () => { this.proceed(); };
+    this.game.events.on('controller-press', this._controllerHandler);
   }
 
   proceed() {
     if (this._transitioning) return;
     this._transitioning = true;
     this.input.enabled = false;
+
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
 
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -83,5 +92,12 @@ export default class StoryScene extends Phaser.Scene {
         this.scene.start('GameScene', { level: 0 });
       }
     });
+  }
+
+  shutdown() {
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
   }
 }

@@ -10,6 +10,16 @@ import GameScene from './scenes/GameScene.js';
 import VictoryScene from './scenes/VictoryScene.js';
 import UIScene from './scenes/UIScene.js';
 
+// Detect touch device before creating the game
+const isTouchDevice = (() => {
+  const primaryIsCoarse = window.matchMedia('(pointer: coarse)').matches;
+  const cannotHover = window.matchMedia('(hover: none)').matches;
+  const hasTouchPoints = navigator.maxTouchPoints > 0;
+  const anyCoarse = window.matchMedia('(any-pointer: coarse)').matches;
+  return (primaryIsCoarse && cannotHover) ||
+    (anyCoarse && hasTouchPoints && window.innerWidth <= 1024);
+})();
+
 const config = {
   type: Phaser.AUTO,
   width: GAME_WIDTH,
@@ -26,7 +36,9 @@ const config = {
   },
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoCenter: isTouchDevice
+      ? Phaser.Scale.CENTER_HORIZONTALLY
+      : Phaser.Scale.CENTER_BOTH,
   },
   input: {
     activePointers: 3,
@@ -36,7 +48,57 @@ const config = {
 
 const game = new Phaser.Game(config);
 game.registry.set('state', new GameState());
+game.registry.set('isTouchDevice', isTouchDevice);
 
 const sfx = new SFX();
 sfx.init();
 game.registry.set('sfx', sfx);
+
+// Mobile: wrap canvas in flex container, add SNES-style controller bar
+if (isTouchDevice) {
+  game.events.once('ready', () => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'game-wrapper';
+    canvas.parentNode.insertBefore(wrapper, canvas);
+    wrapper.appendChild(canvas);
+
+    const bar = document.createElement('div');
+    bar.id = 'controller-bar';
+    bar.innerHTML = `
+      <div class="dpad">
+        <div class="dpad-v"></div>
+        <div class="dpad-h">
+          <button id="btn-left" aria-label="Left">◀</button>
+          <button id="btn-right" aria-label="Right">▶</button>
+        </div>
+        <div class="dpad-center"></div>
+      </div>
+      <div class="actions">
+        <button id="btn-net" aria-label="Net">🕸<span class="btn-label">NET</span></button>
+        <button id="btn-jump" aria-label="Jump">▲<span class="btn-label">JUMP</span></button>
+      </div>
+    `;
+    wrapper.appendChild(bar);
+
+    game.registry.set('touchButtons', {
+      left: document.getElementById('btn-left'),
+      right: document.getElementById('btn-right'),
+      jump: document.getElementById('btn-jump'),
+      net: document.getElementById('btn-net'),
+    });
+
+    // Any controller button press emits 'controller-press' for menu navigation
+    bar.addEventListener('touchstart', () => {
+      game.events.emit('controller-press');
+    });
+
+    // Fix: refresh Phaser's scale manager after DOM manipulation
+    // so pointer coordinates are correctly mapped on first load
+    requestAnimationFrame(() => {
+      game.scale.refresh();
+    });
+  });
+}

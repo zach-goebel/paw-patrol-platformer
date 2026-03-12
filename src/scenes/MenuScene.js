@@ -66,37 +66,49 @@ export default class MenuScene extends Phaser.Scene {
       this.onPlayTap(playBtn);
     });
 
-    // Fullscreen button (parent-facing, top-right)
-    const fsBtn = this.add.graphics();
-    fsBtn.fillStyle(0x000000, 0.3);
-    fsBtn.fillRoundedRect(0, 0, 48, 48, 8);
-    fsBtn.lineStyle(2, 0xffffff);
-    // Four corner arrows
-    fsBtn.lineBetween(10, 10, 18, 10);
-    fsBtn.lineBetween(10, 10, 10, 18);
-    fsBtn.lineBetween(38, 10, 30, 10);
-    fsBtn.lineBetween(38, 10, 38, 18);
-    fsBtn.lineBetween(10, 38, 18, 38);
-    fsBtn.lineBetween(10, 38, 10, 30);
-    fsBtn.lineBetween(38, 38, 30, 38);
-    fsBtn.lineBetween(38, 38, 38, 30);
-    fsBtn.setPosition(GAME_WIDTH - 60, 10);
-    fsBtn.setInteractive(
-      new Phaser.Geom.Rectangle(0, 0, 48, 48),
-      Phaser.Geom.Rectangle.Contains
-    );
-    fsBtn.on('pointerdown', () => {
-      if (this.scale.isFullscreen) {
-        this.scale.stopFullscreen();
-      } else {
-        this.scale.startFullscreen();
-      }
-    });
+    // Controller buttons also start the game (mobile)
+    this._controllerHandler = () => { this.onPlayTap(playBtn); };
+    this.game.events.on('controller-press', this._controllerHandler);
+
+    // Fullscreen button — desktop only (iOS Safari doesn't support Fullscreen API)
+    const isTouchDevice = this.registry.get('isTouchDevice');
+    if (!isTouchDevice) {
+      const fsBtn = this.add.graphics();
+      fsBtn.fillStyle(0x000000, 0.3);
+      fsBtn.fillRoundedRect(0, 0, 48, 48, 8);
+      fsBtn.lineStyle(2, 0xffffff);
+      fsBtn.lineBetween(10, 10, 18, 10);
+      fsBtn.lineBetween(10, 10, 10, 18);
+      fsBtn.lineBetween(38, 10, 30, 10);
+      fsBtn.lineBetween(38, 10, 38, 18);
+      fsBtn.lineBetween(10, 38, 18, 38);
+      fsBtn.lineBetween(10, 38, 10, 30);
+      fsBtn.lineBetween(38, 38, 30, 38);
+      fsBtn.lineBetween(38, 38, 38, 30);
+      fsBtn.setPosition(GAME_WIDTH - 60, 10);
+      fsBtn.setInteractive(
+        new Phaser.Geom.Rectangle(0, 0, 48, 48),
+        Phaser.Geom.Rectangle.Contains
+      );
+      fsBtn.on('pointerdown', () => {
+        if (this.scale.isFullscreen) {
+          this.scale.stopFullscreen();
+        } else {
+          this.scale.startFullscreen();
+        }
+      });
+    }
   }
 
   onPlayTap(playBtn) {
     if (this.audioState !== AUDIO_IDLE) return;
     this.audioState = AUDIO_UNLOCKING;
+
+    // Clean up controller listener
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
 
     // Disable the button visually
     playBtn.setAlpha(0.5);
@@ -123,11 +135,14 @@ export default class MenuScene extends Phaser.Scene {
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Show tutorial on first play, skip on replays
-      const hasSeenTutorial = this.registry.get('hasSeenTutorial');
-      // Flow: Menu → Story → Tutorial (first time) → Game
-      // On replay: Menu → Story → Game
       this.scene.start('StoryScene');
     });
+  }
+
+  shutdown() {
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
   }
 }

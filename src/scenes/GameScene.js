@@ -29,6 +29,9 @@ export default class GameScene extends Phaser.Scene {
     // Net attack
     this.netOnCooldown = false;
 
+    // Touch jump held state (for variable-height jump parity with keyboard)
+    this._jumpHeld = false;
+
     // Boss state
     this.bossState = 'inactive';
     this.bossActive = false;
@@ -247,41 +250,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createTouchControls() {
-    const btnAlpha = 0.6;
-    const btnAlphaActive = 0.9;
-    const bottomY = GAME_HEIGHT - 50;
+    const buttons = this.registry.get('touchButtons');
+    if (!buttons) return;
 
-    // Left arrow
-    const leftBtn = this.add.image(70, bottomY, 'arrow-left')
-      .setScrollFactor(0).setAlpha(btnAlpha).setInteractive().setDepth(100);
+    // D-pad
+    buttons.left.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.left = true; });
+    buttons.left.addEventListener('touchend', () => { this.touchIntent.left = false; });
+    buttons.left.addEventListener('touchcancel', () => { this.touchIntent.left = false; });
 
-    leftBtn.on('pointerdown', () => { this.touchIntent.left = true; leftBtn.setAlpha(btnAlphaActive); });
-    leftBtn.on('pointerup', () => { this.touchIntent.left = false; leftBtn.setAlpha(btnAlpha); });
-    leftBtn.on('pointerout', () => { this.touchIntent.left = false; leftBtn.setAlpha(btnAlpha); });
+    buttons.right.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.right = true; });
+    buttons.right.addEventListener('touchend', () => { this.touchIntent.right = false; });
+    buttons.right.addEventListener('touchcancel', () => { this.touchIntent.right = false; });
 
-    // Right arrow
-    const rightBtn = this.add.image(170, bottomY, 'arrow-right')
-      .setScrollFactor(0).setAlpha(btnAlpha).setInteractive().setDepth(100);
+    // Jump — _jumpHeld tracks whether finger is on button (for variable-height jump)
+    buttons.jump.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.jump = true; this._jumpHeld = true; });
+    buttons.jump.addEventListener('touchend', () => { this._jumpHeld = false; });
+    buttons.jump.addEventListener('touchcancel', () => { this._jumpHeld = false; });
 
-    rightBtn.on('pointerdown', () => { this.touchIntent.right = true; rightBtn.setAlpha(btnAlphaActive); });
-    rightBtn.on('pointerup', () => { this.touchIntent.right = false; rightBtn.setAlpha(btnAlpha); });
-    rightBtn.on('pointerout', () => { this.touchIntent.right = false; rightBtn.setAlpha(btnAlpha); });
-
-    // Jump button
-    const jumpBtn = this.add.image(GAME_WIDTH - 70, bottomY, 'jump-button')
-      .setScrollFactor(0).setAlpha(btnAlpha).setInteractive().setDepth(100);
-
-    jumpBtn.on('pointerdown', () => { this.touchIntent.jump = true; jumpBtn.setAlpha(btnAlphaActive); });
-    jumpBtn.on('pointerup', () => { this.touchIntent.jump = false; jumpBtn.setAlpha(btnAlpha); });
-    jumpBtn.on('pointerout', () => { this.touchIntent.jump = false; jumpBtn.setAlpha(btnAlpha); });
-
-    // Net attack button
-    const netBtn = this.add.image(GAME_WIDTH - 170, bottomY, 'net-touch')
-      .setScrollFactor(0).setAlpha(btnAlpha).setInteractive().setDepth(100);
-
-    netBtn.on('pointerdown', () => { this.touchIntent.net = true; netBtn.setAlpha(btnAlphaActive); });
-    netBtn.on('pointerup', () => { netBtn.setAlpha(btnAlpha); });
-    netBtn.on('pointerout', () => { netBtn.setAlpha(btnAlpha); });
+    // Net
+    buttons.net.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.net = true; });
+    buttons.net.addEventListener('touchend', () => {});
+    buttons.net.addEventListener('touchcancel', () => {});
   }
 
   // --- BOSS ---
@@ -1039,9 +1028,9 @@ export default class GameScene extends Phaser.Scene {
       this.jumpsRemaining--;
     }
 
-    // Variable-height jump
-    if ((this.cursors.up.isUp && this.spaceKey.isUp && !this.touchIntent.jump) &&
-        player.body.velocity.y < 0) {
+    // Variable-height jump — dampen when jump input is released mid-air
+    const jumpHeld = !this.cursors.up.isUp || !this.spaceKey.isUp || this._jumpHeld;
+    if (!jumpHeld && player.body.velocity.y < 0) {
       player.setVelocityY(player.body.velocity.y * 0.85);
     }
 
