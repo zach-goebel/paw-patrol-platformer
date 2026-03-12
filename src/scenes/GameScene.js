@@ -291,19 +291,41 @@ export default class GameScene extends Phaser.Scene {
 
     // Skye in a cage (only in final level)
     if (level.hasSkye) {
-      this.skye = this.add.image(bossX + 300, GAME_HEIGHT - 130, 'skye').setDepth(5);
+      this.skye = this.add.image(bossX + 300, GAME_HEIGHT - 100, 'skye').setDepth(5);
 
       this.cageGraphics = this.add.graphics().setDepth(6);
       this.cageGraphics.lineStyle(3, 0x888888);
       for (let i = 0; i < 5; i++) {
         const x = bossX + 280 + i * 12;
-        this.cageGraphics.lineBetween(x, GAME_HEIGHT - 160, x, GAME_HEIGHT - 100);
+        this.cageGraphics.lineBetween(x, GAME_HEIGHT - 130, x, GAME_HEIGHT - 70);
       }
-      this.cageGraphics.lineBetween(bossX + 278, GAME_HEIGHT - 160, bossX + 330, GAME_HEIGHT - 160);
-      this.cageGraphics.lineBetween(bossX + 278, GAME_HEIGHT - 100, bossX + 330, GAME_HEIGHT - 100);
+      this.cageGraphics.lineBetween(bossX + 278, GAME_HEIGHT - 130, bossX + 330, GAME_HEIGHT - 130);
+      this.cageGraphics.lineBetween(bossX + 278, GAME_HEIGHT - 70, bossX + 330, GAME_HEIGHT - 70);
+
+      // Fail-safe overlap at cage — if Chase reaches Skye and boss is gone, force rescue
+      const cageZone = this.add.rectangle(this.skye.x, this.skye.y, 120, 120, 0x00ff00, 0);
+      this.physics.add.existing(cageZone, true);
+      this.physics.add.overlap(
+        this.player,
+        cageZone,
+        () => {
+          if (this.skyeReached || !this.bossActive) return;
+          if (!this.isBossGone()) return;
+          // Boss is gone but defeat didn't fire properly — force it
+          if (this.bossState !== 'defeated') {
+            this.bossGoneFailsafe();
+          }
+          // If rescue hasn't started yet, start it now
+          if (!this.skyeZone) {
+            this.startSkyeRescue();
+          }
+        },
+        null,
+        this
+      );
     }
 
-    // Boss barrier - only for full boss fight (stage 3)
+    // Boss barrier — only for full boss fight (stage 3)
     if (!level.miniBoss) {
       this.bossBarrier = this.add.rectangle(bossX + 150, GAME_HEIGHT / 2, 16, GAME_HEIGHT, 0xff0000, 0);
       this.physics.add.existing(this.bossBarrier, true);
@@ -319,7 +341,7 @@ export default class GameScene extends Phaser.Scene {
     this.bossState = 'waiting';
     this.bossStartX = bossX;
 
-    // Boss trigger zone
+    // Boss trigger zone — starts the fight when player walks close
     this.bossTrigger = this.add.rectangle(bossX - 200, GAME_HEIGHT / 2, TILE_SIZE * 2, GAME_HEIGHT, 0xff0000, 0);
     this.physics.add.existing(this.bossTrigger, true);
     this.physics.add.overlap(this.player, this.bossTrigger, this.startBossFight, null, this);
@@ -327,25 +349,25 @@ export default class GameScene extends Phaser.Scene {
     // Boss health tracking
     this.bossHitsRemaining = this.bossHP;
 
-    // Net-vs-boss overlap (persistent, with processCallback guard)
+    // Net-vs-boss overlap with processCallback guard
     this.netBossOverlap = this.physics.add.overlap(
       this.nets,
       this.boss,
-      // overlapCallback — only fires when processCallback returns true
       (net) => {
+        // Consume the net and register the hit
         net.setActive(false).setVisible(false);
         net.body.enable = false;
         this.hitBossWithNet();
       },
-      // processCallback — guards against multi-hit and handles bounce-off
       (net) => {
         if (!net.active) return false;
+        // Only allow hit if boss is vulnerable and no hit registered this window
         if (this.bossState === 'vulnerable' && !this.bossHitRegistered) {
-          return true; // allow hit
+          return true;
         }
-        // Bounce off: reverse net, grey flash on boss
-        net.setVelocityX(-net.body.velocity.x);
-        net.originX = net.x;
+        // Net hit non-vulnerable boss — consume and show blocked feedback
+        net.setActive(false).setVisible(false);
+        net.body.enable = false;
         if (this.boss && this.boss.active) {
           this.boss.setTint(0xaaaaaa);
           this.time.delayedCall(150, () => {
@@ -362,16 +384,13 @@ export default class GameScene extends Phaser.Scene {
 
   startBossFight() {
     if (this.bossState !== 'waiting') return;
-    this.bossState = 'approaching';
     this.bossActive = true;
     this.bossTrigger.destroy();
     this.bossCycle();
   }
 
-  bossCycle() {
-    if (this.bossState === 'defeated' || this.bossState === 'hit-stun') return;
-
-    // Clean up timers from previous cycle before creating new ones
+  // Cleans up all boss cycle timers
+  clearBossTimers() {
     if (this.bossApproachTimer) {
       this.bossApproachTimer.remove(false);
       this.bossApproachTimer = null;
@@ -384,12 +403,32 @@ export default class GameScene extends Phaser.Scene {
       this._recoverTimer.remove(false);
       this._recoverTimer = null;
     }
+  }
+
+  // Clears vulnerability visuals (yellow tint, alpha pulse, prompt text)
+  clearVulnerabilityVisuals() {
+    if (this.boss && this.boss.active) {
+      this.boss.clearTint();
+      this.boss.setAlpha(1);
+      this.tweens.killTweensOf(this.boss);
+    }
+    if (this.bossPrompt) {
+      this.tweens.killTweensOf(this.bossPrompt);
+      this.bossPrompt.destroy();
+      this.bossPrompt = null;
+    }
+  }
+
+  bossCycle() {
+    if (this.bossState === 'defeated') return;
+
+    this.clearBossTimers();
 
     this.bossState = 'approaching';
     this.bossHitRegistered = false;
     const bossSpeed = this.levelData.bossSpeed || 80;
 
-    // Boss moves toward player (X-direction only; Y tracked in update())
+    // Boss chases player (X only; Y tracked in update())
     this.bossApproachTimer = this.time.addEvent({
       delay: 50,
       repeat: -1,
@@ -402,21 +441,25 @@ export default class GameScene extends Phaser.Scene {
     });
     this.pendingTimers.push(this.bossApproachTimer);
 
-    // Boss collision with player = damage
+    // Boss contact = damage to player
     if (!this.bossCollider) {
       this.bossCollider = this.physics.add.overlap(this.player, this.boss, this.bossHitPlayer, null, this);
     }
 
-    // Boss gets tired after chase duration
+    // After chasing, boss gets tired and becomes vulnerable
     const tiredDelay = this.levelData.miniBoss ? 1500 : 2500;
     this._tiredTimer = this.time.delayedCall(tiredDelay, () => {
-      if (this.bossState === 'defeated' || this.bossState === 'hit-stun') return;
+      if (this.bossState === 'defeated') return;
+
       this.bossState = 'vulnerable';
       this.bossHitRegistered = false;
       this.boss.setVelocityX(0);
-      if (this.bossApproachTimer) this.bossApproachTimer.remove(false);
+      if (this.bossApproachTimer) {
+        this.bossApproachTimer.remove(false);
+        this.bossApproachTimer = null;
+      }
 
-      // Visual indicator - boss flashes to show vulnerability
+      // Yellow flash + alpha pulse to show vulnerability
       this.boss.setTint(0xffff00);
       this.tweens.add({
         targets: this.boss,
@@ -426,7 +469,7 @@ export default class GameScene extends Phaser.Scene {
         repeat: -1,
       });
 
-      // Show net prompt
+      // "USE NET!" prompt
       this.bossPrompt = this.add.text(this.boss.x, this.boss.y - 60, 'USE NET! (X)', {
         fontSize: '16px',
         fill: '#ffff00',
@@ -444,10 +487,10 @@ export default class GameScene extends Phaser.Scene {
         repeat: -1,
       });
 
-      // Recover after 3s if not hit
+      // If player doesn't hit within 3s, boss recovers and starts a new cycle
       this._recoverTimer = this.time.delayedCall(3000, () => {
         if (this.bossState !== 'vulnerable') return;
-        this.endBossVulnerability();
+        this.clearVulnerabilityVisuals();
         this.bossCycle();
       });
       this.pendingTimers.push(this._recoverTimer);
@@ -493,106 +536,95 @@ export default class GameScene extends Phaser.Scene {
   }
 
   hitBossWithNet() {
+    // Gate: only register during vulnerability, once per window
     if (this.bossState !== 'vulnerable' || this.bossHitRegistered) return;
+
+    // Lock out immediately — prevents any further hits this window
     this.bossHitRegistered = true;
-    this.bossState = 'hit-stun'; // MUST be first — prevents re-entry
+    this.bossState = 'hit-stun';
 
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('boss-hit');
 
+    // Decrement and clear vulnerability visuals
     this.bossHitsRemaining--;
-    this.endBossVulnerability();
+    this.clearBossTimers();
+    this.clearVulnerabilityVisuals();
 
-    // Red flash + strong shake for all hits
+    // Red flash + camera shake
     this.boss.setTint(0xff0000);
     this.cameras.main.shake(300, 0.01);
 
-    // Final hit — defeat immediately (works for mini-boss 1-hit and full boss last hit)
     if (this.bossHitsRemaining <= 0) {
+      // Final hit — defeat
       this.bossDefeated();
-      return;
-    }
+    } else {
+      // Non-final hit — show damage reaction then restart cycle
+      this.boss.body.enable = false;
 
-    // Non-final hit: full feedback sequence with delay before next cycle
-    if (this.boss.body) this.boss.body.enable = false;
-
-    // White flash at 200ms
-    const t1 = this.time.delayedCall(200, () => {
-      if (!this.boss || !this.boss.active) return;
-      this.boss.setTint(0xffffff);
-    });
-    this.pendingTimers.push(t1);
-
-    // Clear tint + shrink at 400ms
-    const t2 = this.time.delayedCall(400, () => {
-      if (!this.boss || !this.boss.active) return;
-      this.boss.clearTint();
-
-      // Re-enable boss body
-      if (this.boss.body) this.boss.body.enable = true;
-
-      // Shrink with bounce
-      const newScale = 1 - (this.bossHP - this.bossHitsRemaining) * 0.15;
-      this.tweens.add({
-        targets: this.boss,
-        scale: Math.max(0.4, newScale),
-        duration: 300,
-        ease: 'Back.easeOut',
+      const t1 = this.time.delayedCall(200, () => {
+        if (!this.boss || !this.boss.active) return;
+        this.boss.setTint(0xffffff);
       });
+      this.pendingTimers.push(t1);
 
-      // Show remaining hits text
-      const hitsText = this.bossHitsRemaining === 1 ? '1 MORE HIT!' : `${this.bossHitsRemaining} MORE HITS!`;
-      const label = this.add.text(this.boss.x, this.boss.y - 70, hitsText, {
-        fontSize: '20px',
-        fill: '#ff4444',
-        fontFamily: 'monospace',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(50);
+      const t2 = this.time.delayedCall(400, () => {
+        if (!this.boss || !this.boss.active) return;
+        this.boss.clearTint();
+        if (this.boss.body) this.boss.body.enable = true;
 
-      this.tweens.add({
-        targets: label,
-        y: label.y - 30,
-        alpha: 0,
-        duration: 1500,
-        ease: 'Power2',
-        onComplete: () => label.destroy(),
+        // Shrink boss
+        const hitsTaken = this.bossHP - this.bossHitsRemaining;
+        const newScale = Math.max(0.4, 1 - hitsTaken * 0.15);
+        this.tweens.add({
+          targets: this.boss,
+          scale: newScale,
+          duration: 300,
+          ease: 'Back.easeOut',
+        });
+
+        // Floating "X MORE HITS!" text
+        const hitsText = this.bossHitsRemaining === 1 ? '1 MORE HIT!' : `${this.bossHitsRemaining} MORE HITS!`;
+        const label = this.add.text(this.boss.x, this.boss.y - 70, hitsText, {
+          fontSize: '20px',
+          fill: '#ff4444',
+          fontFamily: 'monospace',
+          fontStyle: 'bold',
+          stroke: '#000000',
+          strokeThickness: 3,
+        }).setOrigin(0.5).setDepth(50);
+
+        this.tweens.add({
+          targets: label,
+          y: label.y - 30,
+          alpha: 0,
+          duration: 1500,
+          ease: 'Power2',
+          onComplete: () => label.destroy(),
+        });
+
+        // Pause, then restart the approach/vulnerable cycle
+        const t3 = this.time.delayedCall(500, () => {
+          if (this.bossState !== 'hit-stun') return;
+          this.bossCycle();
+        });
+        this.pendingTimers.push(t3);
       });
-
-      // Brief pause then restart cycle
-      const t3 = this.time.delayedCall(500, () => {
-        if (this.bossState === 'defeated' || this.bossState !== 'hit-stun') return;
-        this.bossCycle();
-      });
-      this.pendingTimers.push(t3);
-    });
-    this.pendingTimers.push(t2);
-  }
-
-  endBossVulnerability() {
-    if (this.boss && this.boss.active) {
-      this.boss.clearTint();
-      this.boss.setAlpha(1);
-      this.tweens.killTweensOf(this.boss);
-    }
-    if (this.bossPrompt) {
-      this.tweens.killTweensOf(this.bossPrompt);
-      this.bossPrompt.destroy();
-      this.bossPrompt = null;
+      this.pendingTimers.push(t2);
     }
   }
 
   bossDefeated() {
     this.bossState = 'defeated';
-    this.endBossVulnerability();
+    this.clearBossTimers();
+    this.clearVulnerabilityVisuals();
     this.cancelAllTimers();
     this.cinematicMode = true;
 
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('victory');
 
-    // Remove boss collider
+    // Remove boss-player collider
     if (this.bossCollider) {
       this.physics.world.removeCollider(this.bossCollider);
       this.bossCollider = null;
@@ -601,9 +633,10 @@ export default class GameScene extends Phaser.Scene {
     // Remove barrier
     if (this.bossBarrier) this.bossBarrier.destroy();
 
+    this.boss.body.enable = false;
+
     if (this.levelData.miniBoss) {
-      // Mini-boss: disable body and flee via tween
-      this.boss.body.enable = false;
+      // Mini-boss (stages 1-2): flee right, then allow player to proceed
       this.tweens.add({
         targets: this.boss,
         x: this.boss.x + 600,
@@ -614,12 +647,11 @@ export default class GameScene extends Phaser.Scene {
       });
 
       this.showStageTransitionArrow();
-      this.cinematicMode = false; // allow player to move to exit
+      this.cinematicMode = false;
       return;
     }
 
-    // Full boss (stage 3): spin and fly off
-    this.boss.body.enable = false;
+    // Full boss (stage 3): spin and fly off, then open cage
     this.tweens.add({
       targets: this.boss,
       alpha: 0,
@@ -628,44 +660,46 @@ export default class GameScene extends Phaser.Scene {
       y: this.boss.y - 200,
       duration: 800,
       ease: 'Power2',
-      onComplete: () => { if (this.boss) this.boss.destroy(); },
-    });
+      onComplete: () => {
+        if (this.boss) this.boss.destroy();
 
-    // Free Skye if present (stage 3 end sequence)
-    if (this.levelData.hasSkye && this.skye) {
-      this.time.delayedCall(600, () => {
-        // Cage swings open
-        if (this.cageGraphics) {
-          this.tweens.add({
-            targets: this.cageGraphics,
-            alpha: 0,
-            scaleX: 0.1,
-            duration: 600,
-            ease: 'Back.easeIn',
-          });
+        // Cage open + Skye release fires AFTER exit animation completes
+        if (this.levelData.hasSkye && this.skye) {
+          this.startSkyeRescue();
         }
+      },
+    });
+  }
 
-        // Create overlap zone at Skye — player must walk there
-        this.skyeZone = this.add.rectangle(this.skye.x, this.skye.y, 80, 80, 0x00ff00, 0);
-        this.physics.add.existing(this.skyeZone, true);
-        this.physics.add.overlap(this.player, this.skyeZone, this.onReachSkye, null, this);
-
-        // Bouncing arrow pointing toward Skye
-        const arrowX = this.skye.x - 60;
-        const arrowY = this.skye.y - 50;
-        this.skyeArrow = this.add.image(arrowX, arrowY, 'stage-arrow').setDepth(20);
-        this.tweens.add({
-          targets: this.skyeArrow,
-          y: arrowY - 15,
-          duration: 600,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-
-        // Allow player to walk (cinematicMode still blocks damage but allows movement)
+  startSkyeRescue() {
+    // Fade out cage
+    if (this.cageGraphics) {
+      this.tweens.add({
+        targets: this.cageGraphics,
+        alpha: 0,
+        scaleX: 0.1,
+        duration: 600,
+        ease: 'Back.easeIn',
       });
     }
+
+    // Overlap zone at Skye — player must walk there
+    this.skyeZone = this.add.rectangle(this.skye.x, this.skye.y, 80, 80, 0x00ff00, 0);
+    this.physics.add.existing(this.skyeZone, true);
+    this.physics.add.overlap(this.player, this.skyeZone, this.onReachSkye, null, this);
+
+    // Bouncing arrow pointing toward Skye
+    const arrowX = this.skye.x - 60;
+    const arrowY = this.skye.y - 50;
+    this.skyeArrow = this.add.image(arrowX, arrowY, 'stage-arrow').setDepth(20);
+    this.tweens.add({
+      targets: this.skyeArrow,
+      y: arrowY - 15,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   onReachSkye() {
@@ -677,7 +711,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.setVelocityX(0);
 
-    // Both Chase and Skye bounce together
+    // Chase and Skye bounce together
     this.tweens.add({
       targets: [this.player, this.skye],
       y: '-=25',
@@ -694,6 +728,38 @@ export default class GameScene extends Phaser.Scene {
         });
       },
     });
+  }
+
+  // --- FAIL-SAFES ---
+
+  // Returns true if boss has disappeared (destroyed, inactive, or off-screen)
+  isBossGone() {
+    if (!this.boss || !this.boss.active) return true;
+    const cam = this.cameras.main;
+    const bossScreenX = this.boss.x - cam.scrollX;
+    return bossScreenX < -200 || bossScreenX > GAME_WIDTH + 200;
+  }
+
+  // Safety net: if boss vanished without properly triggering defeat, force completion
+  bossGoneFailsafe() {
+    if (this.bossState === 'defeated') return;
+    this.bossState = 'defeated';
+    this.clearBossTimers();
+    this.clearVulnerabilityVisuals();
+    this.cancelAllTimers();
+    this.cinematicMode = false;
+
+    if (this.bossCollider) {
+      this.physics.world.removeCollider(this.bossCollider);
+      this.bossCollider = null;
+    }
+    if (this.bossBarrier) this.bossBarrier.destroy();
+
+    if (this.levelData.miniBoss) {
+      this.showStageTransitionArrow();
+    } else if (this.levelData.hasSkye && this.skye && !this.skyeZone) {
+      this.startSkyeRescue();
+    }
   }
 
   showStageTransitionArrow() {
@@ -870,6 +936,9 @@ export default class GameScene extends Phaser.Scene {
     // Block exit if boss is alive
     if (this.levelData.hasBoss && this.bossState !== 'defeated') return;
 
+    // Block exit until Skye rescue sequence is complete
+    if (this.levelData.hasSkye && !this.skyeReached) return;
+
     this.exitReached = true;
     this.isTransitioning = true;
 
@@ -1017,6 +1086,25 @@ export default class GameScene extends Phaser.Scene {
       const targetY = this.playerGroundY - 32;
       const lerpFactor = 1 - Math.pow(0.85, (delta || 16.67) / 16.67);
       this.boss.y = Phaser.Math.Linear(this.boss.y, targetY, lerpFactor);
+    }
+
+    // Fail-safe: if boss vanished, ensure game is still completable
+    if (this.bossActive && this.bossState !== 'defeated' && !this.isTransitioning) {
+      if (this.isBossGone()) {
+        if (!this._bossGoneTime) {
+          this._bossGoneTime = time;
+        }
+        const elapsed = time - this._bossGoneTime;
+        if (this.levelData.miniBoss) {
+          // Stages 1-2: immediate failsafe
+          this.bossGoneFailsafe();
+        } else if (elapsed >= 3000) {
+          // Stage 3: 3-second grace period before failsafe
+          this.bossGoneFailsafe();
+        }
+      } else {
+        this._bossGoneTime = null;
+      }
     }
 
     // Safety: if player falls below world
