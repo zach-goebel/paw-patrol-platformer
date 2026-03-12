@@ -26,6 +26,9 @@ export default class GameScene extends Phaser.Scene {
     this.jumpsRemaining = 2;
     this.wasOnGround = true;
 
+    // Scene elapsed time (for timer)
+    this._sceneElapsed = 0;
+
     // Net attack
     this.netOnCooldown = false;
 
@@ -711,9 +714,16 @@ export default class GameScene extends Phaser.Scene {
       onComplete: () => {
         this.cameras.main.fadeOut(500, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
+          const state = this.registry.get('state');
+          state.accumulateTime(this._sceneElapsed);
+          const sceneData = {
+            time: state.getTotalSeconds(),
+            treats: state.treatsCollected,
+            kitties: state.kittiesCaptured,
+          };
           this.cleanup();
           this.scene.stop('UIScene');
-          this.scene.start('VictoryScene');
+          this.scene.start('VictoryScene', sceneData);
         });
       },
     });
@@ -937,13 +947,21 @@ export default class GameScene extends Phaser.Scene {
     if (nextLevel >= LEVELS.length) {
       this.cameras.main.fadeOut(500);
       this.cameras.main.once('camerafadeoutcomplete', () => {
+        state.accumulateTime(this._sceneElapsed);
+        const sceneData = {
+          time: state.getTotalSeconds(),
+          treats: state.treatsCollected,
+          kitties: state.kittiesCaptured,
+        };
         this.cleanup();
         this.scene.stop('UIScene');
-        this.scene.start('VictoryScene');
+        this.scene.start('VictoryScene', sceneData);
       });
       return;
     }
 
+    // Accumulate time before transitioning to next level
+    state.accumulateTime(this._sceneElapsed);
     state.currentLevel = nextLevel;
     this.cameras.main.flash(300, 255, 215, 0);
 
@@ -958,6 +976,11 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (!this.player || !this.player.body) return;
+
+    // Accumulate elapsed time for timer
+    if (!this.isTransitioning && !this.cinematicMode) {
+      this._sceneElapsed += delta;
+    }
 
     const player = this.player;
     const onGround = player.body.onFloor();

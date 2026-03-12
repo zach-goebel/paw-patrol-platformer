@@ -8,6 +8,8 @@ import TutorialScene from './scenes/TutorialScene.js';
 import StoryScene from './scenes/StoryScene.js';
 import GameScene from './scenes/GameScene.js';
 import VictoryScene from './scenes/VictoryScene.js';
+import NameEntryScene from './scenes/NameEntryScene.js';
+import LeaderboardScene from './scenes/LeaderboardScene.js';
 import UIScene from './scenes/UIScene.js';
 
 // Detect touch device before creating the game
@@ -43,7 +45,7 @@ const config = {
   input: {
     activePointers: 3,
   },
-  scene: [PreloadScene, MenuScene, TutorialScene, StoryScene, GameScene, VictoryScene, UIScene],
+  scene: [PreloadScene, MenuScene, TutorialScene, StoryScene, GameScene, VictoryScene, NameEntryScene, LeaderboardScene, UIScene],
 };
 
 const game = new Phaser.Game(config);

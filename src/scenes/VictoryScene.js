@@ -6,6 +6,12 @@ export default class VictoryScene extends Phaser.Scene {
     super('VictoryScene');
   }
 
+  init(data) {
+    this.playerTime = data.time || 0;
+    this.playerTreats = data.treats || 0;
+    this.playerKitties = data.kitties || 0;
+  }
+
   create() {
     this.cameras.main.setBackgroundColor(0x1a1a2e);
     this.cameras.main.fadeIn(500);
@@ -56,46 +62,23 @@ export default class VictoryScene extends Phaser.Scene {
       ease: 'Sine.easeInOut',
     });
 
-    // Play again button after 3 seconds
+    // Auto-advance to name entry after 3 seconds
     this.time.delayedCall(3000, () => {
-      const playBtn = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT - 80, 'play-icon')
-        .setScale(0.8)
-        .setInteractive({ useHandCursor: true });
-
-      this.tweens.add({
-        targets: playBtn,
-        scale: 0.9,
-        duration: 600,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-
-      playBtn.on('pointerdown', () => { this.returnToMenu(); });
-
-      // Controller buttons also return to menu (mobile)
-      this._controllerHandler = () => { this.returnToMenu(); };
-      this.game.events.on('controller-press', this._controllerHandler);
-    });
-
-    // Auto-return to menu after 20 seconds
-    this.time.delayedCall(20000, () => {
-      this.returnToMenu();
+      this.goToNameEntry();
     });
   }
 
-  returnToMenu() {
+  goToNameEntry() {
     if (this._transitioning) return;
     this._transitioning = true;
 
-    if (this._controllerHandler) {
-      this.game.events.off('controller-press', this._controllerHandler);
-      this._controllerHandler = null;
-    }
-
     this.cameras.main.fadeOut(300);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('MenuScene');
+      this.scene.start('NameEntryScene', {
+        time: this.playerTime,
+        treats: this.playerTreats,
+        kitties: this.playerKitties,
+      });
     });
   }
 
@@ -128,12 +111,5 @@ export default class VictoryScene extends Phaser.Scene {
         }
       },
     });
-  }
-
-  shutdown() {
-    if (this._controllerHandler) {
-      this.game.events.off('controller-press', this._controllerHandler);
-      this._controllerHandler = null;
-    }
   }
 }

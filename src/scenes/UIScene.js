@@ -30,21 +30,37 @@ export default class UIScene extends Phaser.Scene {
       strokeThickness: 3,
     });
 
+    // Timer display
+    const state = this.registry.get('state');
+    this.timerText = this.add.text(GAME_WIDTH / 2, 8, '0:00', {
+      fontSize: '20px',
+      fill: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5, 0);
+
+    this.timerEvent = this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        const gameScene = this.scene.get('GameScene');
+        const sceneElapsed = gameScene && gameScene._sceneElapsed ? gameScene._sceneElapsed : 0;
+        const totalMs = state.totalTimeMs + sceneElapsed;
+        const totalSec = Math.floor(totalMs / 1000);
+        const min = Math.floor(totalSec / 60);
+        const sec = totalSec % 60;
+        this.timerText.setText(`${min}:${String(sec).padStart(2, '0')}`);
+      },
+    });
+
     // Health hearts (right side of HUD)
     this.hearts = [];
     for (let i = 0; i < MAX_HEALTH; i++) {
       const heart = this.add.image(GAME_WIDTH - 40 - i * 30, 20, 'heart').setScale(1.2);
       this.hearts.push(heart);
     }
-
-    // Net button hint (small, bottom center)
-    this.add.text(GAME_WIDTH / 2, 8, '[X] = Net', {
-      fontSize: '12px',
-      fill: '#aaaaaa',
-      fontFamily: 'monospace',
-      stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(0.5, 0);
 
     // Listen for events
     this.game.events.on('score-changed', this.onScoreChanged, this);
@@ -55,6 +71,7 @@ export default class UIScene extends Phaser.Scene {
       this.game.events.off('score-changed', this.onScoreChanged, this);
       this.game.events.off('health-changed', this.onHealthChanged, this);
       this.game.events.off('kitty-captured', this.onKittyCaptured, this);
+      if (this.timerEvent) this.timerEvent.destroy();
     });
   }
 

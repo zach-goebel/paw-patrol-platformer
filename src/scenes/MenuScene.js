@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../config/constants.js';
+import { getScores } from '../utils/LeaderboardAPI.js';
 
 const AUDIO_IDLE = 0;
 const AUDIO_UNLOCKING = 1;
@@ -12,6 +13,7 @@ export default class MenuScene extends Phaser.Scene {
 
   create() {
     this.audioState = AUDIO_IDLE;
+    this._transitioning = false;
 
     // Sky background
     this.cameras.main.setBackgroundColor(COLORS.SKY_BLUE);
@@ -44,7 +46,7 @@ export default class MenuScene extends Phaser.Scene {
     this.add.image(160, GAME_HEIGHT - 112, 'player').setScale(1.5);
 
     // Play button - giant pulsing icon
-    const playBtn = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, 'play-icon')
+    const playBtn = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 10, 'play-icon')
       .setScale(1.2)
       .setInteractive({ useHandCursor: true });
 
@@ -57,6 +59,20 @@ export default class MenuScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    // Leaderboard button
+    const lbBtn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'LEADERBOARD', {
+      fontSize: '18px',
+      fill: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#1b3a5c',
+      strokeThickness: 3,
+      backgroundColor: '#2e86c1',
+      padding: { x: 14, y: 6 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    lbBtn.on('pointerdown', () => { this.onLeaderboardTap(); });
 
     // Play button handler — click or any key
     playBtn.on('pointerdown', () => {
@@ -101,7 +117,9 @@ export default class MenuScene extends Phaser.Scene {
   }
 
   onPlayTap(playBtn) {
+    if (this._transitioning) return;
     if (this.audioState !== AUDIO_IDLE) return;
+    this._transitioning = true;
     this.audioState = AUDIO_UNLOCKING;
 
     // Clean up controller listener
@@ -136,6 +154,26 @@ export default class MenuScene extends Phaser.Scene {
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('StoryScene');
+    });
+  }
+
+  onLeaderboardTap() {
+    if (this._transitioning) return;
+    this._transitioning = true;
+
+    // Clean up controller listener
+    if (this._controllerHandler) {
+      this.game.events.off('controller-press', this._controllerHandler);
+      this._controllerHandler = null;
+    }
+
+    // Unlock audio on this gesture too
+    const sfx = this.registry.get('sfx');
+    if (sfx) sfx.resume();
+
+    this.cameras.main.fadeOut(300);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('LeaderboardScene', { fromMenu: true });
     });
   }
 

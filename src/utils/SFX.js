@@ -31,6 +31,7 @@ export default class SFX {
       case 'net': this._tone(t, 800, 400, 0.1, 0.12); break;
       case 'hurt': this._tone(t, 400, 200, 0.12, 0.2); break;
       case 'boss-hit': this._tone(t, 200, 80, 0.1, 0.25); break;
+      case 'tick': this._tone(t, 600, 600, 0.03, 0.08); break;
       case 'victory': this._arpeggio(t); break;
       default: break;
     }

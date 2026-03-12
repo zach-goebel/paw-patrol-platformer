@@ -6,6 +6,7 @@ const INITIAL = {
   treatsCollected: 0,
   kittiesCaptured: 0,
   health: MAX_HEALTH,
+  totalTimeMs: 0,
 };
 
 export default class GameState {
@@ -38,5 +39,13 @@ export default class GameState {
 
   nextLevel() {
     this.currentLevel++;
+  }
+
+  accumulateTime(elapsedMs) {
+    this.totalTimeMs += elapsedMs;
+  }
+
+  getTotalSeconds() {
+    return Math.floor(this.totalTimeMs / 1000);
   }
 }
