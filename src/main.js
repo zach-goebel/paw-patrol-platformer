@@ -51,8 +51,14 @@ game.registry.set('state', new GameState());
 game.registry.set('isTouchDevice', isTouchDevice);
 
 const sfx = new SFX();
-sfx.init();
 game.registry.set('sfx', sfx);
+
+// Initialize SFX with Phaser's managed AudioContext so sounds stay
+// unlocked across scene transitions (fixes missing SFX on levels 1-2)
+game.events.once('ready', () => {
+  const phaserCtx = game.sound && game.sound.context;
+  sfx.init(phaserCtx);
+});
 
 // Mobile: wrap canvas in flex container, add SNES-style controller bar
 if (isTouchDevice) {
@@ -69,12 +75,9 @@ if (isTouchDevice) {
     bar.id = 'controller-bar';
     bar.innerHTML = `
       <div class="dpad">
-        <div class="dpad-v"></div>
-        <div class="dpad-h">
-          <button id="btn-left" aria-label="Left">◀</button>
-          <button id="btn-right" aria-label="Right">▶</button>
-        </div>
-        <div class="dpad-center"></div>
+        <button id="btn-left" aria-label="Left">◀</button>
+        <div class="dpad-divider"></div>
+        <button id="btn-right" aria-label="Right">▶</button>
       </div>
       <div class="actions">
         <button id="btn-net" aria-label="Net">🕸<span class="btn-label">NET</span></button>

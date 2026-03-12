@@ -4,9 +4,9 @@ export default class SFX {
     this.enabled = true;
   }
 
-  init() {
+  init(audioContext) {
     try {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
     } catch {
       this.enabled = false;
     }
