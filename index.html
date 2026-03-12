@@ -168,7 +168,7 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        padding: 8px;
+        padding: 6px;
         background: linear-gradient(180deg, #d4d4d8 0%, #bcbcc4 40%, #a8a8b2 100%);
         box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.5);
         flex: 0 0 auto;
@@ -188,14 +188,17 @@
       #game-wrapper.landscape {
         flex-direction: row;
         align-items: stretch;
+        justify-content: center;
         height: 100vh;
         height: 100dvh;
       }
 
       #game-wrapper.landscape canvas {
+        flex: 1 1 0;
         min-width: 0;
         max-height: 100vh;
         max-height: 100dvh;
+        object-fit: contain;
       }
 
       #game-wrapper.landscape .controller-side {
@@ -206,24 +209,44 @@
         display: none;
       }
 
-      #game-wrapper.landscape .actions {
-        flex-direction: column;
-      }
-
+      /* D-pad: keep horizontal (side by side) in landscape */
       #game-wrapper.landscape .dpad {
-        flex-direction: column;
+        flex-direction: row;
         height: auto;
-        width: 52px;
+        width: auto;
       }
 
       #game-wrapper.landscape .dpad button {
-        width: 52px;
-        height: 52px;
+        width: 48px;
+        height: 48px;
       }
 
       #game-wrapper.landscape .dpad-divider {
-        width: 36px;
-        height: 1px;
+        width: 1px;
+        height: 28px;
+      }
+
+      /* Action buttons: diagonal like NES A/B */
+      #game-wrapper.landscape .actions {
+        flex-direction: row;
+        gap: 2px;
+        align-items: flex-end;
+      }
+
+      #game-wrapper.landscape .actions button {
+        width: 50px;
+        height: 50px;
+        font-size: 12px;
+      }
+
+      #game-wrapper.landscape .actions #btn-jump {
+        width: 54px;
+        height: 54px;
+        font-size: 14px;
+      }
+
+      #game-wrapper.landscape .actions #btn-net {
+        margin-bottom: 32px;
       }
     </style>
   </head>
