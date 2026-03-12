@@ -61,7 +61,7 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     // Leaderboard button
-    const lbBtn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'LEADERBOARD', {
+    const lbBtn = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 130, 'LEADERBOARD', {
       fontSize: '18px',
       fill: '#ffffff',
       fontFamily: 'monospace',
