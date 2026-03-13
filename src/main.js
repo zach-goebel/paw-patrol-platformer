@@ -121,9 +121,14 @@ if (isTouchDevice) {
         bar.appendChild(actions);
         game.scale.autoCenter = Phaser.Scale.CENTER_HORIZONTALLY;
       }
-      // resize() forces Phaser to re-read parent dimensions (refresh alone doesn't)
-      game.scale.resize(GAME_WIDTH, GAME_HEIGHT);
-      requestAnimationFrame(() => game.scale.refresh());
+      // Double rAF: first frame lets browser resolve flex layout,
+      // second frame lets Phaser measure the final container dimensions
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          game.scale.resize(GAME_WIDTH, GAME_HEIGHT);
+          game.scale.refresh();
+        });
+      });
     }
 
     const orientationQuery = window.matchMedia('(orientation: landscape)');
