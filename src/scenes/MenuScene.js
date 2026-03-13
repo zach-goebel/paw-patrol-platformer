@@ -138,6 +138,11 @@ export default class MenuScene extends Phaser.Scene {
     // Audio unlock happens on user gesture (this tap)
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
+
+    // Resume Phaser's audio context (mobile browsers suspend it until user gesture)
+    if (this.sound.context && this.sound.context.state === 'suspended') {
+      this.sound.context.resume();
+    }
     this.audioState = AUDIO_READY;
 
     // Start theme music (loops throughout the game)
@@ -170,6 +175,9 @@ export default class MenuScene extends Phaser.Scene {
     // Unlock audio on this gesture too
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
+    if (this.sound.context && this.sound.context.state === 'suspended') {
+      this.sound.context.resume();
+    }
 
     this.cameras.main.fadeOut(300);
     this.cameras.main.once('camerafadeoutcomplete', () => {
