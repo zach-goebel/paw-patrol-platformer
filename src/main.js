@@ -105,6 +105,27 @@ game.events.once('ready', () => {
   sfx.init(phaserCtx);
 });
 
+// iOS audio unlock — must happen in a direct DOM touch handler (capture phase).
+// iOS "ambient" audio session (used by Web Audio API) respects the silent switch.
+// Playing through an HTML5 <audio> element activates the "playback" session
+// which ignores the silent switch and also enables Web Audio output.
+if (isTouchDevice) {
+  function unlockAudio() {
+    // Resume the Web Audio context for SFX
+    const ctx = game.sound && game.sound.context;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    sfx.resume();
+
+    document.removeEventListener('touchstart', unlockAudio, true);
+    document.removeEventListener('touchend', unlockAudio, true);
+  }
+
+  document.addEventListener('touchstart', unlockAudio, true);
+  document.addEventListener('touchend', unlockAudio, true);
+}
+
 // Mobile: wire up controller events and orientation switching
 if (isTouchDevice) {
   game.events.once('ready', () => {

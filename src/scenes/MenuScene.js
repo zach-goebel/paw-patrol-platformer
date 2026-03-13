@@ -139,20 +139,36 @@ export default class MenuScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
 
-    // Resume Phaser's audio context (mobile browsers suspend it until user gesture)
-    if (this.sound.context && this.sound.context.state === 'suspended') {
-      this.sound.context.resume();
+    const ctx = this.sound.context;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
     }
+
     this.audioState = AUDIO_READY;
 
-    // Start theme music (loops throughout the game)
+    // Start theme music — use HTML5 Audio on mobile (bypasses iOS silent switch),
+    // Phaser Web Audio on desktop
+    const isMobile = this.registry.get('isTouchDevice');
     if (!this.registry.get('themeMusic')) {
-      const theme = this.sound.add('theme', { loop: true, volume: 0.4 });
-      this.registry.set('themeMusic', theme);
+      if (isMobile) {
+        const audio = new Audio('assets/audio/theme.mp3');
+        audio.loop = true;
+        audio.volume = 0.4;
+        this.registry.set('themeMusic', audio);
+      } else {
+        const theme = this.sound.add('theme', { loop: true, volume: 0.4 });
+        this.registry.set('themeMusic', theme);
+      }
     }
     const theme = this.registry.get('themeMusic');
-    if (theme && !theme.isPlaying) {
-      theme.play();
+    if (isMobile) {
+      if (theme.paused || theme.currentTime === 0) {
+        theme.play().catch(() => {});
+      }
+    } else {
+      if (theme && !theme.isPlaying) {
+        theme.play();
+      }
     }
 
     // Brief flash transition
