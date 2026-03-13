@@ -22,6 +22,46 @@ const isTouchDevice = (() => {
     (anyCoarse && hasTouchPoints && window.innerWidth <= 1024);
 })();
 
+// Mobile: create DOM structure BEFORE Phaser so it can use game-container as parent
+let wrapper, leftPanel, rightPanel, bar, dpad, actions;
+if (isTouchDevice) {
+  wrapper = document.createElement('div');
+  wrapper.id = 'game-wrapper';
+  document.body.appendChild(wrapper);
+
+  leftPanel = document.createElement('div');
+  leftPanel.id = 'controller-left';
+  leftPanel.className = 'controller-side';
+  wrapper.appendChild(leftPanel);
+
+  const gameContainer = document.createElement('div');
+  gameContainer.id = 'game-container';
+  wrapper.appendChild(gameContainer);
+
+  rightPanel = document.createElement('div');
+  rightPanel.id = 'controller-right';
+  rightPanel.className = 'controller-side';
+  wrapper.appendChild(rightPanel);
+
+  bar = document.createElement('div');
+  bar.id = 'controller-bar';
+  bar.innerHTML = `
+    <div class="dpad">
+      <button id="btn-left" aria-label="Left">◀</button>
+      <div class="dpad-divider"></div>
+      <button id="btn-right" aria-label="Right">▶</button>
+    </div>
+    <div class="actions">
+      <button id="btn-net" aria-label="Net">🕸<span class="btn-label">NET</span></button>
+      <button id="btn-jump" aria-label="Jump">▲<span class="btn-label">JUMP</span></button>
+    </div>
+  `;
+  wrapper.appendChild(bar);
+
+  dpad = bar.querySelector('.dpad');
+  actions = bar.querySelector('.actions');
+}
+
 const config = {
   type: Phaser.AUTO,
   width: GAME_WIDTH,
@@ -41,6 +81,9 @@ const config = {
     autoCenter: isTouchDevice
       ? Phaser.Scale.CENTER_HORIZONTALLY
       : Phaser.Scale.CENTER_BOTH,
+    // On touch devices, render into the game-container so Phaser
+    // measures the correct available space (between side panels)
+    ...(isTouchDevice && { parent: 'game-container' }),
   },
   input: {
     activePointers: 3,
@@ -62,62 +105,24 @@ game.events.once('ready', () => {
   sfx.init(phaserCtx);
 });
 
-// Mobile: wrap canvas in flex container, add SNES-style controller bar
+// Mobile: wire up controller events and orientation switching
 if (isTouchDevice) {
   game.events.once('ready', () => {
-    const canvas = document.querySelector('canvas');
-    if (!canvas) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.id = 'game-wrapper';
-    canvas.parentNode.insertBefore(wrapper, canvas);
-
-    // Create side panels for landscape mode
-    const leftPanel = document.createElement('div');
-    leftPanel.id = 'controller-left';
-    leftPanel.className = 'controller-side';
-    wrapper.appendChild(leftPanel);
-
-    // Wrap canvas in its own container so Phaser scales to the middle area
-    const gameContainer = document.createElement('div');
-    gameContainer.id = 'game-container';
-    gameContainer.appendChild(canvas);
-    wrapper.appendChild(gameContainer);
-
-    const rightPanel = document.createElement('div');
-    rightPanel.id = 'controller-right';
-    rightPanel.className = 'controller-side';
-    wrapper.appendChild(rightPanel);
-
-    const bar = document.createElement('div');
-    bar.id = 'controller-bar';
-    bar.innerHTML = `
-      <div class="dpad">
-        <button id="btn-left" aria-label="Left">◀</button>
-        <div class="dpad-divider"></div>
-        <button id="btn-right" aria-label="Right">▶</button>
-      </div>
-      <div class="actions">
-        <button id="btn-net" aria-label="Net">🕸<span class="btn-label">NET</span></button>
-        <button id="btn-jump" aria-label="Jump">▲<span class="btn-label">JUMP</span></button>
-      </div>
-    `;
-    wrapper.appendChild(bar);
-
-    const dpad = bar.querySelector('.dpad');
-    const actions = bar.querySelector('.actions');
-
     // Switch between portrait (bottom bar) and landscape (side panels) layouts
     function applyLayout(isLandscape) {
       if (isLandscape) {
         wrapper.classList.add('landscape');
         leftPanel.appendChild(dpad);
         rightPanel.appendChild(actions);
+        game.scale.autoCenter = Phaser.Scale.NO_CENTER;
       } else {
         wrapper.classList.remove('landscape');
         bar.appendChild(dpad);
         bar.appendChild(actions);
+        game.scale.autoCenter = Phaser.Scale.CENTER_HORIZONTALLY;
       }
+      // resize() forces Phaser to re-read parent dimensions (refresh alone doesn't)
+      game.scale.resize(GAME_WIDTH, GAME_HEIGHT);
       requestAnimationFrame(() => game.scale.refresh());
     }
 
@@ -137,12 +142,6 @@ if (isTouchDevice) {
       el.addEventListener('touchstart', () => {
         game.events.emit('controller-press');
       });
-    });
-
-    // Fix: refresh Phaser's scale manager after DOM manipulation
-    // so pointer coordinates are correctly mapped on first load
-    requestAnimationFrame(() => {
-      game.scale.refresh();
     });
   });
 }
