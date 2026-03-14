@@ -23,7 +23,7 @@ export default class SFX {
   static FILE_VOLUMES = {
     'sfx-kitty-defeat': 0.45,   // ~10% quieter than default
     'sfx-net-call': 0.52,       // ~5% quieter than default
-    'sfx-boss-defeat': 1.0,     // doubled from default
+    'sfx-boss-defeat': 2.0,     // COMICALLY LOUD — intentionally clips for comedic effect
   };
 
   /**
@@ -47,7 +47,16 @@ export default class SFX {
 
   play(name) {
     if (!this.enabled || !this.ctx) return;
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    // If context is suspended, resume it first. For file-based sounds,
+    // we must wait for resume to complete before starting the buffer source.
+    if (this.ctx.state === 'suspended') {
+      const resumePromise = this.ctx.resume();
+      if (resumePromise && this.fileSounds[name]) {
+        resumePromise.then(() => this._playBuffer(this.fileSounds[name], name)).catch(() => {});
+        return;
+      }
+    }
 
     // Check for file-based sound first
     if (this.fileSounds[name]) {

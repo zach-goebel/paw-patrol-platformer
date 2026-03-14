@@ -2,6 +2,10 @@
  * Centralized music manager using HTML5 Audio for all platforms.
  * HTML5 Audio avoids Web Audio decodeAudioData issues with certain MP3 encodings
  * and bypasses the iOS silent switch (activates "playback" audio session).
+ *
+ * Mobile fix: Audio elements are pre-created and unlocked during the first user
+ * gesture (via unlock()). This allows later programmatic playMusic() calls
+ * (e.g. boss fight transitions) to succeed without a direct user gesture.
  */
 
 const MUSIC_TRACKS = {
@@ -18,11 +22,46 @@ export default class AudioManager {
     this.currentAudio = null;
     this.currentKey = null;
     this._fadeTimer = null;
+    this._pool = {};       // key -> Audio element (pre-created)
+    this._unlocked = false;
   }
 
   /**
-   * Play a music track with crossfade from current track.
+   * Pre-create and unlock all Audio elements. Must be called during a user
+   * gesture (e.g. tap on splash screen) so that each element's play()/pause()
+   * registers as gesture-initiated on mobile browsers.
    */
+  unlock() {
+    if (this._unlocked) return;
+
+    for (const [key, path] of Object.entries(MUSIC_TRACKS)) {
+      // Skip if already in pool (shouldn't happen, but defensive)
+      if (this._pool[key]) continue;
+
+      const audio = new Audio(path);
+      audio.preload = 'auto';
+      audio.load();
+
+      // Unlock the element by playing and immediately pausing.
+      // On iOS Safari, this registers the element as user-gesture-activated,
+      // allowing future programmatic .play() calls to succeed.
+      const p = audio.play();
+      if (p) {
+        p.then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+        }).catch(() => {
+          // play() was blocked — element is still in pool and will be
+          // retried on next playMusic() call (which may also be in a gesture)
+        });
+      }
+
+      this._pool[key] = audio;
+    }
+
+    this._unlocked = true;
+  }
+
   /**
    * Play a music track with crossfade from current track.
    * onStarted callback fires if playback begins (not blocked by autoplay).
@@ -44,9 +83,20 @@ export default class AudioManager {
       this._fadeOutAudio(this.currentAudio, fadeOut);
     }
 
-    const audio = new Audio(path);
-    audio.loop = loop;
-    audio.volume = 0;
+    // Reuse pre-created pool element if available, otherwise create new
+    let audio = this._pool[key];
+    if (audio) {
+      // Reset for reuse
+      audio.loop = loop;
+      audio.volume = 0;
+      audio.currentTime = 0;
+    } else {
+      // Fallback: create on demand (may fail on mobile without gesture)
+      audio = new Audio(path);
+      audio.loop = loop;
+      audio.volume = 0;
+      this._pool[key] = audio;
+    }
 
     this.currentKey = key;
     this.currentAudio = audio;
@@ -58,7 +108,10 @@ export default class AudioManager {
         this._fadeInAudio(audio, volume, fadeIn);
         if (onStarted) onStarted();
       }).catch(() => {
-        // Autoplay blocked — clean up so the next attempt can retry
+        // Autoplay blocked — but DON'T null out state.
+        // Keep currentKey/currentAudio so the same-key guard works
+        // and the next user gesture can retry via resume() or playMusic().
+        // Only clean up if nothing else has taken over.
         if (this.currentAudio === audio) {
           this.currentAudio = null;
           this.currentKey = null;
@@ -84,6 +137,11 @@ export default class AudioManager {
   }
 
   _fadeInAudio(audio, targetVolume, duration) {
+    if (duration <= 0) {
+      try { audio.volume = targetVolume; } catch {}
+      return;
+    }
+
     const steps = 20;
     const interval = duration / steps;
     const increment = targetVolume / steps;

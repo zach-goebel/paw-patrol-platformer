@@ -82,16 +82,33 @@ export default class PreloadScene extends Phaser.Scene {
     treatGfx.generateTexture('treat', 32, 32);
     treatGfx.destroy();
 
-    // Net projectile texture
+    // Net projectile texture — fan/cone shape with visible cross-hatching
     const netGfx = this.make.graphics({ add: false });
-    netGfx.fillStyle(0x4499dd);
-    netGfx.fillRect(2, 2, 20, 12);
-    netGfx.lineStyle(1, 0x226699);
-    for (let x = 2; x <= 22; x += 5) netGfx.lineBetween(x, 2, x, 14);
-    for (let y = 2; y <= 14; y += 4) netGfx.lineBetween(2, y, 22, y);
-    netGfx.fillStyle(0x885522);
-    netGfx.fillCircle(2, 8, 3);
-    netGfx.generateTexture('net-projectile', 24, 16);
+    // Handle/pole on left
+    netGfx.fillStyle(0x8B4513);
+    netGfx.fillRect(0, 6, 6, 4);
+    // Net body — trapezoidal shape (narrow left, wide right)
+    // Bright white net mesh for visibility
+    netGfx.fillStyle(0xffffff, 0.9);
+    netGfx.fillTriangle(5, 8, 28, 0, 28, 16);
+    // Diamond cross-hatch pattern
+    netGfx.lineStyle(1.5, 0x88ccff);
+    // Diagonal lines one direction
+    for (let i = 0; i < 6; i++) {
+      const xOff = 6 + i * 4;
+      netGfx.lineBetween(xOff, Math.max(0, 8 - i * 2), xOff + 8, Math.min(16, 8 + i * 2));
+    }
+    // Diagonal lines other direction
+    for (let i = 0; i < 6; i++) {
+      const xOff = 6 + i * 4;
+      netGfx.lineBetween(xOff, Math.min(16, 8 + i * 2), xOff + 8, Math.max(0, 8 - i * 2));
+    }
+    // Outer rim
+    netGfx.lineStyle(1.5, 0x4499dd);
+    netGfx.lineBetween(5, 8, 28, 0);
+    netGfx.lineBetween(5, 8, 28, 16);
+    netGfx.lineBetween(28, 0, 28, 16);
+    netGfx.generateTexture('net-projectile', 30, 17);
     netGfx.destroy();
 
     // Net button for boss fight prompt
@@ -212,6 +229,6 @@ export default class PreloadScene extends Phaser.Scene {
       });
     }
 
-    this.scene.start('MenuScene');
+    this.scene.start('BirthdaySplashScene');
   }
 }

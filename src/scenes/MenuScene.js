@@ -9,10 +9,10 @@ export default class MenuScene extends Phaser.Scene {
 
   create() {
     this._transitioning = false;
-    this._musicStarted = false;
 
     // Sky background
     this.cameras.main.setBackgroundColor(COLORS.SKY_BLUE);
+    this.cameras.main.fadeIn(400);
 
     // Ground
     const ground = this.add.graphics();
@@ -111,56 +111,16 @@ export default class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Music can only start from a user gesture (browser autoplay policy).
-    // Use document-level listeners (capture phase) so we catch any interaction
-    // — even outside the Phaser canvas.
-    this._unlockMusic = () => { this._startTitleMusic(); };
-    document.addEventListener('pointerdown', this._unlockMusic, { once: false, capture: true });
-    document.addEventListener('keydown', this._unlockMusic, { once: false, capture: true });
-
-    // If user has already interacted with the page before reaching this scene
-    // (e.g. returning from leaderboard), try starting immediately.
-    this._startTitleMusic();
-  }
-
-  _startTitleMusic() {
-    if (this._musicStarted) return;
+    // Audio is already unlocked from BirthdaySplashScene — start title music immediately.
+    // If returning from leaderboard/game, audio is already active.
     const audioManager = this.registry.get('audioManager');
-    if (!audioManager) return;
-    audioManager.resume();
-
-    // onStarted only fires if audio.play() succeeds (not blocked by autoplay).
-    // If blocked, _musicStarted stays false and listeners remain for retry.
-    audioManager.playMusic('theme-title', {
-      volume: 0.4,
-      fadeIn: 800,
-      onStarted: () => {
-        this._musicStarted = true;
-        if (this._unlockMusic) {
-          document.removeEventListener('pointerdown', this._unlockMusic, true);
-          document.removeEventListener('keydown', this._unlockMusic, true);
-          this._unlockMusic = null;
-        }
-      },
-    });
+    if (audioManager) {
+      audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
+    }
   }
 
   onPlayTap(playBtn) {
     if (this._transitioning) return;
-
-    // Audio unlock happens on user gesture (this tap)
-    const sfx = this.registry.get('sfx');
-    if (sfx) sfx.resume();
-
-    // If music hasn't started yet (first interaction on the page),
-    // just unlock audio and start the title theme — don't transition.
-    // The player needs to tap again to actually start the game.
-    // This is required because browsers block audio until a user gesture.
-    if (!this._musicStarted) {
-      this._startTitleMusic();
-      return;
-    }
-
     this._transitioning = true;
 
     // Clean up controller listener
@@ -185,17 +145,6 @@ export default class MenuScene extends Phaser.Scene {
 
   onLeaderboardTap() {
     if (this._transitioning) return;
-
-    // Unlock audio on this gesture too
-    const sfx = this.registry.get('sfx');
-    if (sfx) sfx.resume();
-
-    // Same as onPlayTap — if first interaction, just start music
-    if (!this._musicStarted) {
-      this._startTitleMusic();
-      return;
-    }
-
     this._transitioning = true;
 
     // Clean up controller listener
@@ -214,11 +163,6 @@ export default class MenuScene extends Phaser.Scene {
     if (this._controllerHandler) {
       this.game.events.off('controller-press', this._controllerHandler);
       this._controllerHandler = null;
-    }
-    if (this._unlockMusic) {
-      document.removeEventListener('pointerdown', this._unlockMusic, true);
-      document.removeEventListener('keydown', this._unlockMusic, true);
-      this._unlockMusic = null;
     }
   }
 }

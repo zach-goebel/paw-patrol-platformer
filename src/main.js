@@ -4,6 +4,7 @@ import GameState from './config/GameState.js';
 import SFX from './utils/SFX.js';
 import AudioManager from './utils/AudioManager.js';
 import PreloadScene from './scenes/PreloadScene.js';
+import BirthdaySplashScene from './scenes/BirthdaySplashScene.js';
 import MenuScene from './scenes/MenuScene.js';
 import TutorialScene from './scenes/TutorialScene.js';
 import StoryScene from './scenes/StoryScene.js';
@@ -89,7 +90,7 @@ const config = {
   input: {
     activePointers: 3,
   },
-  scene: [PreloadScene, MenuScene, TutorialScene, StoryScene, GameScene, VictoryScene, NameEntryScene, LeaderboardScene, UIScene],
+  scene: [PreloadScene, BirthdaySplashScene, MenuScene, TutorialScene, StoryScene, GameScene, VictoryScene, NameEntryScene, LeaderboardScene, UIScene],
 };
 
 const game = new Phaser.Game(config);

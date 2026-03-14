@@ -635,15 +635,18 @@ export default class GameScene extends Phaser.Scene {
       if (sfx) sfx.play('victory');
     });
 
-    // Fade boss music out so the defeat SFX is clearly audible
+    // Hard-stop music so the COMICALLY LOUD defeat SFX cuts through
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
+      audioManager.stopMusic(0);
+
       if (this.levelData.miniBoss) {
-        audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 500, fadeOut: 500 });
-      } else {
-        // Final boss — stop music immediately so defeat groan cuts through
-        audioManager.stopMusic(0);
+        // Mini-boss: resume gameplay music after defeat SFX has had its moment
+        this.time.delayedCall(1200, () => {
+          audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 800, fadeOut: 0 });
+        });
       }
+      // Final boss stays silent — victory fanfare plays when reaching Skye
     }
 
     // Remove boss-player collider
@@ -694,21 +697,10 @@ export default class GameScene extends Phaser.Scene {
   }
 
   startSkyeRescue() {
-    // Fade out cage
-    if (this.cageGraphics) {
-      this.tweens.add({
-        targets: this.cageGraphics,
-        alpha: 0,
-        scaleX: 0.1,
-        duration: 600,
-        ease: 'Back.easeIn',
-      });
-    }
-
-    // Overlap zone at Skye — player must walk there
-    this.skyeZone = this.add.rectangle(this.skye.x, this.skye.y, 80, 80, 0x00ff00, 0);
-    this.physics.add.existing(this.skyeZone, true);
-    this.physics.add.overlap(this.player, this.skyeZone, this.onReachSkye, null, this);
+    // Don't open the cage yet — wait for Chase to be near enough to see it.
+    // Show the bouncing arrow immediately to guide the player.
+    this._awaitingCageOpen = true;
+    this._cageOpened = false;
 
     // Bouncing arrow pointing toward Skye
     const arrowX = this.skye.x - 60;
@@ -721,6 +713,39 @@ export default class GameScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
+    });
+
+    // Overlap zone at Skye — player must walk there to trigger celebration
+    this.skyeZone = this.add.rectangle(this.skye.x, this.skye.y, 80, 80, 0x00ff00, 0);
+    this.physics.add.existing(this.skyeZone, true);
+    this.physics.add.overlap(this.player, this.skyeZone, this.onReachSkye, null, this);
+  }
+
+  /**
+   * Called from update() when Chase is close enough to the cage.
+   * Opens the cage with a slow, dramatic animation so the player sees Skye was caged.
+   */
+  openCage() {
+    if (this._cageOpened || !this.cageGraphics) return;
+    this._cageOpened = true;
+    this._awaitingCageOpen = false;
+
+    // Cage rattles/shakes for a beat before flying open
+    this.tweens.add({
+      targets: this.cageGraphics,
+      x: { value: 3, duration: 80, yoyo: true, repeat: 5 },
+      onComplete: () => {
+        // Cage flies upward and fades out slowly
+        this.tweens.add({
+          targets: this.cageGraphics,
+          y: -200,
+          alpha: 0,
+          scaleX: 0.3,
+          scaleY: 0.3,
+          duration: 1800,
+          ease: 'Sine.easeIn',
+        });
+      },
     });
   }
 
@@ -1134,6 +1159,17 @@ export default class GameScene extends Phaser.Scene {
       const targetY = this.playerGroundY - 32;
       const lerpFactor = 1 - Math.pow(0.85, (delta || 16.67) / 16.67);
       this.boss.y = Phaser.Math.Linear(this.boss.y, targetY, lerpFactor);
+    }
+
+    // Cage proximity check: open cage when Chase is on-screen near it
+    if (this._awaitingCageOpen && this.skye && this.player) {
+      const dist = Math.abs(this.player.x - this.skye.x);
+      const cam = this.cameras.main;
+      const skyeScreenX = this.skye.x - cam.scrollX;
+      const isOnScreen = skyeScreenX > -50 && skyeScreenX < GAME_WIDTH + 50;
+      if (dist < 300 && isOnScreen) {
+        this.openCage();
+      }
     }
 
     // Fail-safe: if boss vanished, ensure game is still completable
