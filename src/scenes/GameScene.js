@@ -561,7 +561,9 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(300, 0.01);
 
     if (this.bossHitsRemaining <= 0) {
-      // Final hit — defeat
+      // Final hit — play defeat SFX immediately here (belt-and-suspenders
+      // with bossDefeated), ensuring it fires regardless of animation state
+      if (sfx) sfx.play('sfx-boss-defeat');
       this.bossDefeated();
     } else {
       // Non-final hit — show damage reaction then restart cycle
@@ -754,6 +756,17 @@ export default class GameScene extends Phaser.Scene {
     this.skyeReached = true;
     this.isTransitioning = true;
 
+    // Force-open cage if it hasn't opened yet (failsafe)
+    if (!this._cageOpened && this.cageGraphics) {
+      this._cageOpened = true;
+      this._awaitingCageOpen = false;
+      this.tweens.add({
+        targets: this.cageGraphics,
+        y: -200, alpha: 0, scaleX: 0.3, scaleY: 0.3,
+        duration: 800, ease: 'Sine.easeIn',
+      });
+    }
+
     if (this.skyeArrow) this.skyeArrow.destroy();
 
     this.player.setVelocityX(0);
@@ -809,6 +822,10 @@ export default class GameScene extends Phaser.Scene {
     this.cancelAllTimers();
     this.cinematicMode = false;
 
+    // Play defeat SFX even in failsafe path
+    const sfx = this.registry.get('sfx');
+    if (sfx) sfx.play('sfx-boss-defeat');
+
     if (this.bossCollider) {
       this.physics.world.removeCollider(this.bossCollider);
       this.bossCollider = null;
@@ -859,6 +876,7 @@ export default class GameScene extends Phaser.Scene {
     net.body.reset(startX, startY);
     net.body.setAllowGravity(false);
     net.setVelocityX(dir * NET_SPEED);
+    net.setFlipX(dir < 0);
     net.setDepth(15);
     net.originX = startX;
 
@@ -1138,10 +1156,10 @@ export default class GameScene extends Phaser.Scene {
 
       if (kitty.x <= kitty.patrolLeft && kitty.body.velocity.x <= 0) {
         kitty.setVelocityX(kitty.speed);
-        kitty.setFlipX(false);
+        kitty.setFlipX(true);   // sprite faces left by default, flip to face right
       } else if (kitty.x >= kitty.patrolRight && kitty.body.velocity.x >= 0) {
         kitty.setVelocityX(-kitty.speed);
-        kitty.setFlipX(true);
+        kitty.setFlipX(false);  // moving left = default orientation
       }
 
       // Safety: recover from zeroed velocity
@@ -1149,7 +1167,7 @@ export default class GameScene extends Phaser.Scene {
         const center = (kitty.patrolLeft + kitty.patrolRight) / 2;
         const dir = kitty.x < center ? 1 : -1;
         kitty.setVelocityX(dir * kitty.speed);
-        kitty.setFlipX(dir < 0);
+        kitty.setFlipX(dir > 0);  // flip when moving right
       }
     });
 

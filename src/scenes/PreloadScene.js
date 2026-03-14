@@ -82,33 +82,32 @@ export default class PreloadScene extends Phaser.Scene {
     treatGfx.generateTexture('treat', 32, 32);
     treatGfx.destroy();
 
-    // Net projectile texture — fan/cone shape with visible cross-hatching
+    // Net projectile texture — open net bag with visible mesh webbing
     const netGfx = this.make.graphics({ add: false });
+    const w = 30, h = 20;
     // Handle/pole on left
     netGfx.fillStyle(0x8B4513);
-    netGfx.fillRect(0, 6, 6, 4);
-    // Net body — trapezoidal shape (narrow left, wide right)
-    // Bright white net mesh for visibility
-    netGfx.fillStyle(0xffffff, 0.9);
-    netGfx.fillTriangle(5, 8, 28, 0, 28, 16);
-    // Diamond cross-hatch pattern
-    netGfx.lineStyle(1.5, 0x88ccff);
-    // Diagonal lines one direction
-    for (let i = 0; i < 6; i++) {
-      const xOff = 6 + i * 4;
-      netGfx.lineBetween(xOff, Math.max(0, 8 - i * 2), xOff + 8, Math.min(16, 8 + i * 2));
-    }
-    // Diagonal lines other direction
-    for (let i = 0; i < 6; i++) {
-      const xOff = 6 + i * 4;
-      netGfx.lineBetween(xOff, Math.min(16, 8 + i * 2), xOff + 8, Math.max(0, 8 - i * 2));
-    }
-    // Outer rim
-    netGfx.lineStyle(1.5, 0x4499dd);
-    netGfx.lineBetween(5, 8, 28, 0);
-    netGfx.lineBetween(5, 8, 28, 16);
-    netGfx.lineBetween(28, 0, 28, 16);
-    netGfx.generateTexture('net-projectile', 30, 17);
+    netGfx.fillRect(0, 8, 7, 4);
+    // Net bag outline — rounded open shape
+    netGfx.lineStyle(2, 0xffffff);
+    // Top rim
+    netGfx.lineBetween(6, 3, 28, 1);
+    // Bottom rim
+    netGfx.lineBetween(6, 17, 28, 19);
+    // Open end (right side arc approximation)
+    netGfx.lineBetween(28, 1, 29, 5);
+    netGfx.lineBetween(29, 5, 29, 15);
+    netGfx.lineBetween(29, 15, 28, 19);
+    // Mesh webbing — horizontal strings
+    netGfx.lineStyle(1, 0xccddff);
+    netGfx.lineBetween(8, 7, 29, 6);
+    netGfx.lineBetween(7, 10, 29, 10);
+    netGfx.lineBetween(8, 13, 29, 14);
+    // Mesh webbing — vertical/diagonal strings
+    netGfx.lineBetween(12, 4, 11, 17);
+    netGfx.lineBetween(18, 3, 17, 18);
+    netGfx.lineBetween(24, 2, 23, 19);
+    netGfx.generateTexture('net-projectile', w, h);
     netGfx.destroy();
 
     // Net button for boss fight prompt

@@ -35,7 +35,6 @@ export default class AudioManager {
     if (this._unlocked) return;
 
     for (const [key, path] of Object.entries(MUSIC_TRACKS)) {
-      // Skip if already in pool (shouldn't happen, but defensive)
       if (this._pool[key]) continue;
 
       const audio = new Audio(path);
@@ -50,16 +49,46 @@ export default class AudioManager {
         p.then(() => {
           audio.pause();
           audio.currentTime = 0;
-        }).catch(() => {
-          // play() was blocked — element is still in pool and will be
-          // retried on next playMusic() call (which may also be in a gesture)
-        });
+        }).catch(() => {});
       }
 
       this._pool[key] = audio;
     }
 
     this._unlocked = true;
+
+    // Listen for iOS audio interruptions (alarms, phone calls, etc.)
+    // When the page regains focus, resume whatever track should be playing.
+    this._onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        this._recoverFromInterruption();
+      }
+    };
+    document.addEventListener('visibilitychange', this._onVisibilityChange);
+
+    // iOS fires 'focus' on return from interruption even without visibility change
+    this._onFocus = () => { this._recoverFromInterruption(); };
+    window.addEventListener('focus', this._onFocus);
+  }
+
+  /**
+   * After an iOS interruption (alarm, phone call), the Audio elements get
+   * paused by the OS. Detect this and restart the current track.
+   */
+  _recoverFromInterruption() {
+    // Resume Web Audio context for SFX
+    const ctx = this.game.sound && this.game.sound.context;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume();
+    }
+
+    // If we have a current track that should be playing, check if it got paused
+    if (this.currentAudio && this.currentKey) {
+      if (this.currentAudio.paused) {
+        const p = this.currentAudio.play();
+        if (p) p.catch(() => {});
+      }
+    }
   }
 
   /**
@@ -78,20 +107,18 @@ export default class AudioManager {
       return;
     }
 
-    // Fade out current
-    if (this.currentAudio) {
-      this._fadeOutAudio(this.currentAudio, fadeOut);
-    }
+    // CRITICAL: Stop ALL pool elements before starting a new track.
+    // This prevents music layering from unlock() play/pause race conditions
+    // and ensures only one track plays at a time.
+    this._stopAllPoolElements(fadeOut);
 
     // Reuse pre-created pool element if available, otherwise create new
     let audio = this._pool[key];
     if (audio) {
-      // Reset for reuse
       audio.loop = loop;
       audio.volume = 0;
       audio.currentTime = 0;
     } else {
-      // Fallback: create on demand (may fail on mobile without gesture)
       audio = new Audio(path);
       audio.loop = loop;
       audio.volume = 0;
@@ -104,21 +131,15 @@ export default class AudioManager {
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.then(() => {
-        // Playback started successfully
         this._fadeInAudio(audio, volume, fadeIn);
         if (onStarted) onStarted();
       }).catch(() => {
-        // Autoplay blocked — but DON'T null out state.
-        // Keep currentKey/currentAudio so the same-key guard works
-        // and the next user gesture can retry via resume() or playMusic().
-        // Only clean up if nothing else has taken over.
         if (this.currentAudio === audio) {
           this.currentAudio = null;
           this.currentKey = null;
         }
       });
     } else {
-      // No promise (old browser) — assume success
       this._fadeInAudio(audio, volume, fadeIn);
       if (onStarted) onStarted();
     }
@@ -128,12 +149,28 @@ export default class AudioManager {
    * Stop all music with optional fade out.
    */
   stopMusic(fadeOut = 500) {
-    if (this.currentAudio) {
-      this._fadeOutAudio(this.currentAudio, fadeOut);
-    }
-    // Clear state immediately so playMusic() won't skip the next call
+    // Stop ALL pool elements, not just currentAudio, to prevent orphaned playback
+    this._stopAllPoolElements(fadeOut);
     this.currentAudio = null;
     this.currentKey = null;
+  }
+
+  /**
+   * Pause and reset every element in the pool. Prevents any stale playback.
+   */
+  _stopAllPoolElements(fadeOut) {
+    for (const audio of Object.values(this._pool)) {
+      if (audio === this.currentAudio && fadeOut > 0) {
+        this._fadeOutAudio(audio, fadeOut);
+      } else {
+        // Hard stop all others immediately
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 0;
+        } catch {}
+      }
+    }
   }
 
   _fadeInAudio(audio, targetVolume, duration) {
@@ -160,7 +197,6 @@ export default class AudioManager {
   }
 
   _fadeOutAudio(audio, duration) {
-    // Immediate stop for duration <= 0
     if (duration <= 0) {
       try {
         audio.pause();
