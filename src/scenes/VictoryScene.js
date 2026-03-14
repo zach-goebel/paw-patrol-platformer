@@ -17,16 +17,12 @@ export default class VictoryScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500);
     this._transitioning = false;
 
-    // Victory fanfare is already playing (started in GameScene.onReachSkye).
-    // Hard cut to title theme which continues through name entry and leaderboard.
+    // Victory fanfare was playing from GameScene.onReachSkye — kill it now.
+    // Hard cut: immediately stop fanfare, start title theme with no overlap.
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
-      this.time.delayedCall(1500, () => {
-        if (audioManager) {
-          audioManager.stopMusic(0);
-          audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 200, fadeOut: 0 });
-        }
-      });
+      audioManager.stopMusic(0);
+      audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 0, fadeOut: 0 });
     }
 
     // Fireworks / confetti particles

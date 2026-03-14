@@ -627,19 +627,22 @@ export default class GameScene extends Phaser.Scene {
     this.cinematicMode = true;
 
     const sfx = this.registry.get('sfx');
+    // Play boss defeat groan immediately, then victory arpeggio after a beat
     if (sfx) {
       sfx.play('sfx-boss-defeat');
-      sfx.play('victory');
     }
+    this.time.delayedCall(400, () => {
+      if (sfx) sfx.play('victory');
+    });
 
-    // Fade boss music back to gameplay (or silence for final level)
+    // Fade boss music out so the defeat SFX is clearly audible
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
       if (this.levelData.miniBoss) {
         audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 500, fadeOut: 500 });
       } else {
-        // Final boss — stop music, VictoryScene will start its own
-        audioManager.stopMusic(800);
+        // Final boss — stop music immediately so defeat groan cuts through
+        audioManager.stopMusic(0);
       }
     }
 

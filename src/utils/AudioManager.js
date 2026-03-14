@@ -79,9 +79,19 @@ export default class AudioManager {
   }
 
   _fadeOutAudio(audio, duration) {
+    // Immediate stop for duration <= 0
+    if (duration <= 0) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = 0;
+      } catch {}
+      return;
+    }
+
     const startVolume = audio.volume;
     if (startVolume === 0) {
-      audio.pause();
+      try { audio.pause(); } catch {}
       return;
     }
 
