@@ -17,12 +17,11 @@ export default class VictoryScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500);
     this._transitioning = false;
 
-    // Play victory fanfare (not looping), then crossfade to title music
+    // Victory fanfare is already playing (started in GameScene.onReachSkye).
+    // Crossfade into title theme which continues through name entry and leaderboard.
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
-      audioManager.playMusic('theme-victory', { volume: 0.5, loop: false, fadeIn: 300, fadeOut: 300 });
-      // After ~3.5 seconds, crossfade into title theme which continues through leaderboard
-      this.time.delayedCall(3500, () => {
+      this.time.delayedCall(1500, () => {
         if (audioManager) {
           audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800, fadeOut: 800 });
         }

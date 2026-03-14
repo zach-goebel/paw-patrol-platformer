@@ -730,6 +730,12 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.setVelocityX(0);
 
+    // Start victory fanfare when Chase and Skye start celebrating
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.playMusic('theme-victory', { volume: 0.5, loop: false, fadeIn: 300, fadeOut: 500 });
+    }
+
     // Chase and Skye bounce together
     this.tweens.add({
       targets: [this.player, this.skye],

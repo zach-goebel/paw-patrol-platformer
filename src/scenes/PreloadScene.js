@@ -188,6 +188,30 @@ export default class PreloadScene extends Phaser.Scene {
     if (this.loadErrors.length > 0) {
       console.warn('Failed to load assets:', this.loadErrors);
     }
+
+    // Decode file-based SFX now that Phaser has loaded and decoded them.
+    // This must happen here (not in main.js 'ready' event) because 'ready'
+    // fires before PreloadScene finishes loading assets.
+    const sfx = this.registry.get('sfx');
+    if (sfx && sfx.ctx) {
+      const sfxKeys = ['sfx-bark', 'sfx-net-call', 'sfx-kitty-defeat', 'sfx-boss-defeat'];
+      sfxKeys.forEach((key) => {
+        try {
+          const cacheEntry = this.cache.audio.get(key);
+          if (!cacheEntry) return;
+          if (cacheEntry instanceof AudioBuffer) {
+            sfx.addFileSound(key, cacheEntry);
+          } else if (cacheEntry instanceof ArrayBuffer) {
+            sfx.ctx.decodeAudioData(cacheEntry.slice(0), (buffer) => {
+              sfx.addFileSound(key, buffer);
+            });
+          }
+        } catch (e) {
+          console.warn(`Failed to decode SFX: ${key}`, e);
+        }
+      });
+    }
+
     this.scene.start('MenuScene');
   }
 }

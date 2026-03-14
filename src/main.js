@@ -100,34 +100,15 @@ const sfx = new SFX();
 game.registry.set('sfx', sfx);
 
 // Initialize SFX with Phaser's managed AudioContext so sounds stay
-// unlocked across scene transitions (fixes missing SFX on levels 1-2)
+// unlocked across scene transitions (fixes missing SFX on levels 1-2).
+// File-based SFX decoding happens in PreloadScene.create() after assets load.
 game.events.once('ready', () => {
   const phaserCtx = game.sound && game.sound.context;
   sfx.init(phaserCtx);
 
-  // Initialize AudioManager for music
+  // Initialize AudioManager for music (uses HTML5 Audio for all platforms)
   const audioManager = new AudioManager(game);
   game.registry.set('audioManager', audioManager);
-
-  // Decode file-based SFX into AudioBuffers for Web Audio playback
-  const sfxFiles = ['sfx-bark', 'sfx-net-call', 'sfx-kitty-defeat', 'sfx-boss-defeat'];
-  sfxFiles.forEach((key) => {
-    try {
-      const cacheEntry = game.cache.audio.get(key);
-      if (cacheEntry) {
-        // Phaser stores decoded AudioBuffer in cache
-        if (cacheEntry instanceof AudioBuffer) {
-          sfx.addFileSound(key, cacheEntry);
-        } else if (phaserCtx && cacheEntry instanceof ArrayBuffer) {
-          phaserCtx.decodeAudioData(cacheEntry.slice(0), (buffer) => {
-            sfx.addFileSound(key, buffer);
-          });
-        }
-      }
-    } catch (e) {
-      console.warn(`Failed to load SFX: ${key}`, e);
-    }
-  });
 });
 
 // iOS audio unlock — must happen in a direct DOM touch handler (capture phase).

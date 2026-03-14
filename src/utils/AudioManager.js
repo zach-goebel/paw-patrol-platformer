@@ -54,9 +54,10 @@ export default class AudioManager {
   stopMusic(fadeOut = 500) {
     if (this.currentAudio) {
       this._fadeOutAudio(this.currentAudio, fadeOut);
-      this.currentAudio = null;
-      this.currentKey = null;
     }
+    // Clear state immediately so playMusic() won't skip the next call
+    this.currentAudio = null;
+    this.currentKey = null;
   }
 
   _fadeInAudio(audio, targetVolume, duration) {

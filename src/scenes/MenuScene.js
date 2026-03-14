@@ -9,6 +9,7 @@ export default class MenuScene extends Phaser.Scene {
 
   create() {
     this._transitioning = false;
+    this._musicStarted = false;
 
     // Sky background
     this.cameras.main.setBackgroundColor(COLORS.SKY_BLUE);
@@ -110,11 +111,30 @@ export default class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Start title music via AudioManager
+    // Try to start title music immediately — will succeed if user has
+    // already interacted with the page (e.g. returning from leaderboard).
+    // If blocked by autoplay policy, the first interaction handler below starts it.
+    this._startTitleMusic();
+
+    // Autoplay fallback: start music on first click/key/touch anywhere on the page
+    this._unlockMusic = () => { this._startTitleMusic(); };
+    this.input.on('pointerdown', this._unlockMusic);
+    this.input.keyboard.on('keydown', this._unlockMusic);
+  }
+
+  _startTitleMusic() {
+    if (this._musicStarted) return;
     const audioManager = this.registry.get('audioManager');
-    if (audioManager) {
-      audioManager.resume();
-      audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
+    if (!audioManager) return;
+    audioManager.resume();
+    audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
+    this._musicStarted = true;
+
+    // Clean up the unlock listeners
+    if (this._unlockMusic) {
+      this.input.off('pointerdown', this._unlockMusic);
+      this.input.keyboard.off('keydown', this._unlockMusic);
+      this._unlockMusic = null;
     }
   }
 
@@ -139,8 +159,8 @@ export default class MenuScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
 
-    const audioManager = this.registry.get('audioManager');
-    if (audioManager) audioManager.resume();
+    // Ensure title music is playing (in case autoplay was blocked)
+    this._startTitleMusic();
 
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
