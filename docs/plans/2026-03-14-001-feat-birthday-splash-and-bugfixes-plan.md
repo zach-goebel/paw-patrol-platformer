@@ -1,7 +1,7 @@
 ---
 title: "feat: Birthday Splash Screen & Cross-Platform Bug Fixes"
 type: feat
-status: active
+status: completed
 date: 2026-03-14
 ---
 
@@ -218,50 +218,50 @@ Restructure `src/utils/AudioManager.js`:
 ## Acceptance Criteria
 
 ### Item 1: Birthday Splash
-- [ ] Splash screen appears as first thing after asset loading
-- [ ] Shows "Happy Birthday Waylon!" in pixel/retro style
-- [ ] Chase sprite visible on left, Skye sprite visible on right
-- [ ] Pixel art balloons visible
-- [ ] Large "TAP TO PLAY" button with glow/pulse animation
-- [ ] Single tap transitions to MenuScene with fade
-- [ ] Audio is fully unlocked after splash tap (both music and SFX)
-- [ ] MenuScene play button starts game immediately (single tap)
-- [ ] Works on both desktop (click/keypress) and mobile (tap)
+- [x] Splash screen appears as first thing after asset loading
+- [x] Shows "Happy Birthday Waylon!" in pixel/retro style
+- [x] Chase sprite visible on left, Skye sprite visible on right
+- [x] Pixel art balloons visible
+- [x] Large "TAP TO PLAY" button with glow/pulse animation
+- [x] Single tap transitions to MenuScene with fade
+- [x] Audio is fully unlocked after splash tap (both music and SFX)
+- [x] MenuScene play button starts game immediately (single tap)
+- [x] Works on both desktop (click/keypress) and mobile (tap)
 
 ### Item 2: Boss Defeat Volume
-- [ ] `sfx-boss-defeat` is dramatically louder than all other sounds
-- [ ] Triggers on level 0 mini-boss defeat
-- [ ] Triggers on level 1 mini-boss defeat
-- [ ] Triggers on level 2 final boss defeat
-- [ ] Brief music silence on mini-boss defeats so SFX isn't masked
+- [x] `sfx-boss-defeat` is dramatically louder than all other sounds
+- [x] Triggers on level 0 mini-boss defeat
+- [x] Triggers on level 1 mini-boss defeat
+- [x] Triggers on level 2 final boss defeat
+- [x] Brief music silence on mini-boss defeats so SFX isn't masked
 
 ### Item 3: Cage Timing
-- [ ] Cage does NOT open until Chase is visible on screen near it
-- [ ] Bouncing arrow appears immediately after boss defeat to guide player
-- [ ] Cage animation is slow enough to clearly see Skye was caged (~1800ms)
-- [ ] Cage visually flies away / breaks apart (not just fade)
-- [ ] Works with bossGoneFailsafe path
+- [x] Cage does NOT open until Chase is visible on screen near it
+- [x] Bouncing arrow appears immediately after boss defeat to guide player
+- [x] Cage animation is slow enough to clearly see Skye was caged (~1800ms)
+- [x] Cage visually flies away / breaks apart (not just fade)
+- [x] Works with bossGoneFailsafe path
 
 ### Item 4: Net Sprite
-- [ ] Net projectile is more visible than current blue rectangle
-- [ ] Looks more like an actual net (wider opening, cross-hatch pattern)
-- [ ] Physics body still works correctly with updated dimensions
+- [x] Net projectile is more visible than current blue rectangle
+- [x] Looks more like an actual net (wider opening, cross-hatch pattern)
+- [x] Physics body still works correctly with updated dimensions
 - [ ] Ask user about custom sprite before extensive procedural work
 
 ### Item 5: Mobile Boss Music
-- [ ] Boss theme music plays when Humdinger appears on mobile
-- [ ] Works in both landscape and portrait orientations
-- [ ] Works on iOS Safari and Chrome Android
+- [x] Boss theme music plays when Humdinger appears on mobile
+- [x] Works in both landscape and portrait orientations
+- [x] Works on iOS Safari and Chrome Android
 
 ### Item 6: Mobile Music Recovery
-- [ ] Gameplay music resumes after mini-boss defeats on mobile
-- [ ] Boss music plays on levels 2 and 3 on mobile
-- [ ] Victory fanfare plays on mobile
-- [ ] Title theme plays on leaderboard screen on mobile
+- [x] Gameplay music resumes after mini-boss defeats on mobile
+- [x] Boss music plays on levels 2 and 3 on mobile
+- [x] Victory fanfare plays on mobile
+- [x] Title theme plays on leaderboard screen on mobile
 
 ### Item 7: Mobile Boss Defeat SFX
-- [ ] `sfx-boss-defeat` sound plays on mobile for all 3 boss encounters
-- [ ] Volume matches the "comically loud" setting from Item 2
+- [x] `sfx-boss-defeat` sound plays on mobile for all 3 boss encounters
+- [x] Volume matches the "comically loud" setting from Item 2
 
 ---
 
