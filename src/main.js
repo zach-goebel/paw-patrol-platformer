@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, GRAVITY } from './config/constants.js';
 import GameState from './config/GameState.js';
 import SFX from './utils/SFX.js';
+import AudioManager from './utils/AudioManager.js';
 import PreloadScene from './scenes/PreloadScene.js';
 import MenuScene from './scenes/MenuScene.js';
 import TutorialScene from './scenes/TutorialScene.js';
@@ -103,6 +104,39 @@ game.registry.set('sfx', sfx);
 game.events.once('ready', () => {
   const phaserCtx = game.sound && game.sound.context;
   sfx.init(phaserCtx);
+
+  // Initialize AudioManager for music
+  const audioManager = new AudioManager(game);
+  game.registry.set('audioManager', audioManager);
+
+  // Register music tracks for mobile HTML5 Audio playback
+  if (isTouchDevice) {
+    audioManager.addTrack('theme-title', 'assets/audio/theme-title.mp3');
+    audioManager.addTrack('theme-story', 'assets/audio/theme-story.mp3');
+    audioManager.addTrack('theme-gameplay', 'assets/audio/theme.mp3');
+    audioManager.addTrack('theme-boss', 'assets/audio/theme-boss.mp3');
+    audioManager.addTrack('theme-victory', 'assets/audio/theme-victory.mp3');
+  }
+
+  // Decode file-based SFX into AudioBuffers for Web Audio playback
+  const sfxFiles = ['sfx-bark', 'sfx-net-call', 'sfx-kitty-defeat', 'sfx-boss-defeat'];
+  sfxFiles.forEach((key) => {
+    try {
+      const cacheEntry = game.cache.audio.get(key);
+      if (cacheEntry) {
+        // Phaser stores decoded AudioBuffer in cache
+        if (cacheEntry instanceof AudioBuffer) {
+          sfx.addFileSound(key, cacheEntry);
+        } else if (phaserCtx && cacheEntry instanceof ArrayBuffer) {
+          phaserCtx.decodeAudioData(cacheEntry.slice(0), (buffer) => {
+            sfx.addFileSound(key, buffer);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to load SFX: ${key}`, e);
+    }
+  });
 });
 
 // iOS audio unlock — must happen in a direct DOM touch handler (capture phase).

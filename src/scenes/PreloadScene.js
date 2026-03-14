@@ -52,8 +52,18 @@ export default class PreloadScene extends Phaser.Scene {
     this.load.image('boss', 'assets/images/humdinger.png');
     this.load.image('skye', 'assets/images/skye.png');
 
-    // Load music
-    this.load.audio('theme', 'assets/audio/theme.mp3');
+    // Load music tracks
+    this.load.audio('theme-gameplay', 'assets/audio/theme.mp3');
+    this.load.audio('theme-title', 'assets/audio/theme-title.mp3');
+    this.load.audio('theme-story', 'assets/audio/theme-story.mp3');
+    this.load.audio('theme-boss', 'assets/audio/theme-boss.mp3');
+    this.load.audio('theme-victory', 'assets/audio/theme-victory.mp3');
+
+    // Load file-based sound effects
+    this.load.audio('sfx-bark', 'assets/audio/sfx-bark.wav');
+    this.load.audio('sfx-net-call', 'assets/audio/sfx-net-call.wav');
+    this.load.audio('sfx-kitty-defeat', 'assets/audio/sfx-kitty-defeat.wav');
+    this.load.audio('sfx-boss-defeat', 'assets/audio/sfx-boss-defeat.wav');
 
     // Load tiling backgrounds (800x480)
     this.load.image('bg-adventure-bay', 'assets/images/bg-adventure-bay.png');

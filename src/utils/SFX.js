@@ -2,6 +2,7 @@ export default class SFX {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.fileSounds = {};  // name -> AudioBuffer
   }
 
   init(audioContext) {
@@ -18,9 +19,34 @@ export default class SFX {
     }
   }
 
+  /**
+   * Register a file-based sound effect from a preloaded Phaser audio cache.
+   * @param {string} name - SFX name to use with play()
+   * @param {AudioBuffer} buffer - Decoded audio buffer
+   */
+  addFileSound(name, buffer) {
+    this.fileSounds[name] = buffer;
+  }
+
+  /**
+   * Play a random sound from the given list of names.
+   * @param {string[]} names - Array of SFX names
+   */
+  playRandom(names) {
+    if (!names || names.length === 0) return;
+    const name = names[Math.floor(Math.random() * names.length)];
+    this.play(name);
+  }
+
   play(name) {
     if (!this.enabled || !this.ctx) return;
     if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    // Check for file-based sound first
+    if (this.fileSounds[name]) {
+      this._playBuffer(this.fileSounds[name]);
+      return;
+    }
 
     const t = this.ctx.currentTime;
     switch (name) {
@@ -35,6 +61,15 @@ export default class SFX {
       case 'victory': this._arpeggio(t); break;
       default: break;
     }
+  }
+
+  _playBuffer(buffer) {
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+    source.connect(gain).connect(this.ctx.destination);
+    source.start(0);
   }
 
   _tone(t, startFreq, endFreq, dur, vol = 0.15) {

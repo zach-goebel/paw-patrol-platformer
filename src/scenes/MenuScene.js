@@ -2,17 +2,12 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../config/constants.js';
 import { getScores } from '../utils/LeaderboardAPI.js';
 
-const AUDIO_IDLE = 0;
-const AUDIO_UNLOCKING = 1;
-const AUDIO_READY = 2;
-
 export default class MenuScene extends Phaser.Scene {
   constructor() {
     super('MenuScene');
   }
 
   create() {
-    this.audioState = AUDIO_IDLE;
     this._transitioning = false;
 
     // Sky background
@@ -114,13 +109,18 @@ export default class MenuScene extends Phaser.Scene {
         }
       });
     }
+
+    // Start title music via AudioManager
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.resume();
+      audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
+    }
   }
 
   onPlayTap(playBtn) {
     if (this._transitioning) return;
-    if (this.audioState !== AUDIO_IDLE) return;
     this._transitioning = true;
-    this.audioState = AUDIO_UNLOCKING;
 
     // Clean up controller listener
     if (this._controllerHandler) {
@@ -139,37 +139,8 @@ export default class MenuScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
 
-    const ctx = this.sound.context;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
-
-    this.audioState = AUDIO_READY;
-
-    // Start theme music — use HTML5 Audio on mobile (bypasses iOS silent switch),
-    // Phaser Web Audio on desktop
-    const isMobile = this.registry.get('isTouchDevice');
-    if (!this.registry.get('themeMusic')) {
-      if (isMobile) {
-        const audio = new Audio('assets/audio/theme.mp3');
-        audio.loop = true;
-        audio.volume = 0.4;
-        this.registry.set('themeMusic', audio);
-      } else {
-        const theme = this.sound.add('theme', { loop: true, volume: 0.4 });
-        this.registry.set('themeMusic', theme);
-      }
-    }
-    const theme = this.registry.get('themeMusic');
-    if (isMobile) {
-      if (theme.paused || theme.currentTime === 0) {
-        theme.play().catch(() => {});
-      }
-    } else {
-      if (theme && !theme.isPlaying) {
-        theme.play();
-      }
-    }
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) audioManager.resume();
 
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
@@ -191,9 +162,8 @@ export default class MenuScene extends Phaser.Scene {
     // Unlock audio on this gesture too
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
-    if (this.sound.context && this.sound.context.state === 'suspended') {
-      this.sound.context.resume();
-    }
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) audioManager.resume();
 
     this.cameras.main.fadeOut(300);
     this.cameras.main.once('camerafadeoutcomplete', () => {
