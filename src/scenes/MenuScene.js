@@ -111,16 +111,16 @@ export default class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Try to start title music immediately — will succeed if user has
-    // already interacted with the page (e.g. returning from leaderboard).
-    this._startTitleMusic();
-
-    // Autoplay fallback: use document-level listeners (not Phaser input)
-    // because Phaser input events don't fire until the canvas has focus,
-    // which may never happen if the user clicks outside the canvas first.
+    // Music can only start from a user gesture (browser autoplay policy).
+    // Use document-level listeners (capture phase) so we catch any interaction
+    // — even outside the Phaser canvas.
     this._unlockMusic = () => { this._startTitleMusic(); };
     document.addEventListener('pointerdown', this._unlockMusic, { once: false, capture: true });
     document.addEventListener('keydown', this._unlockMusic, { once: false, capture: true });
+
+    // If user has already interacted with the page before reaching this scene
+    // (e.g. returning from leaderboard), try starting immediately.
+    this._startTitleMusic();
   }
 
   _startTitleMusic() {
@@ -128,15 +128,21 @@ export default class MenuScene extends Phaser.Scene {
     const audioManager = this.registry.get('audioManager');
     if (!audioManager) return;
     audioManager.resume();
-    audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
-    this._musicStarted = true;
 
-    // Clean up the document-level unlock listeners
-    if (this._unlockMusic) {
-      document.removeEventListener('pointerdown', this._unlockMusic, true);
-      document.removeEventListener('keydown', this._unlockMusic, true);
-      this._unlockMusic = null;
-    }
+    // onStarted only fires if audio.play() succeeds (not blocked by autoplay).
+    // If blocked, _musicStarted stays false and listeners remain for retry.
+    audioManager.playMusic('theme-title', {
+      volume: 0.4,
+      fadeIn: 800,
+      onStarted: () => {
+        this._musicStarted = true;
+        if (this._unlockMusic) {
+          document.removeEventListener('pointerdown', this._unlockMusic, true);
+          document.removeEventListener('keydown', this._unlockMusic, true);
+          this._unlockMusic = null;
+        }
+      },
+    });
   }
 
   onPlayTap(playBtn) {

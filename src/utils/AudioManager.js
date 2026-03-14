@@ -23,8 +23,15 @@ export default class AudioManager {
   /**
    * Play a music track with crossfade from current track.
    */
-  playMusic(key, { volume = 0.4, loop = true, fadeIn = 500, fadeOut = 500 } = {}) {
-    if (this.currentKey === key) return;
+  /**
+   * Play a music track with crossfade from current track.
+   * onStarted callback fires if playback begins (not blocked by autoplay).
+   */
+  playMusic(key, { volume = 0.4, loop = true, fadeIn = 500, fadeOut = 500, onStarted } = {}) {
+    if (this.currentKey === key) {
+      if (onStarted) onStarted();
+      return;
+    }
 
     const path = MUSIC_TRACKS[key];
     if (!path) {
@@ -37,15 +44,31 @@ export default class AudioManager {
       this._fadeOutAudio(this.currentAudio, fadeOut);
     }
 
-    this.currentKey = key;
-
     const audio = new Audio(path);
     audio.loop = loop;
     audio.volume = 0;
+
+    this.currentKey = key;
     this.currentAudio = audio;
 
-    audio.play().catch(() => {});
-    this._fadeInAudio(audio, volume, fadeIn);
+    const playPromise = audio.play();
+    if (playPromise) {
+      playPromise.then(() => {
+        // Playback started successfully
+        this._fadeInAudio(audio, volume, fadeIn);
+        if (onStarted) onStarted();
+      }).catch(() => {
+        // Autoplay blocked — clean up so the next attempt can retry
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+          this.currentKey = null;
+        }
+      });
+    } else {
+      // No promise (old browser) — assume success
+      this._fadeInAudio(audio, volume, fadeIn);
+      if (onStarted) onStarted();
+    }
   }
 
   /**
