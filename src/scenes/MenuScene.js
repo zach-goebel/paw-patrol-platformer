@@ -147,6 +147,20 @@ export default class MenuScene extends Phaser.Scene {
 
   onPlayTap(playBtn) {
     if (this._transitioning) return;
+
+    // Audio unlock happens on user gesture (this tap)
+    const sfx = this.registry.get('sfx');
+    if (sfx) sfx.resume();
+
+    // If music hasn't started yet (first interaction on the page),
+    // just unlock audio and start the title theme — don't transition.
+    // The player needs to tap again to actually start the game.
+    // This is required because browsers block audio until a user gesture.
+    if (!this._musicStarted) {
+      this._startTitleMusic();
+      return;
+    }
+
     this._transitioning = true;
 
     // Clean up controller listener
@@ -162,13 +176,6 @@ export default class MenuScene extends Phaser.Scene {
     // Reset game state
     this.registry.get('state').reset();
 
-    // Audio unlock happens on user gesture (this tap)
-    const sfx = this.registry.get('sfx');
-    if (sfx) sfx.resume();
-
-    // Ensure title music is playing (in case autoplay was blocked)
-    this._startTitleMusic();
-
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -178,6 +185,17 @@ export default class MenuScene extends Phaser.Scene {
 
   onLeaderboardTap() {
     if (this._transitioning) return;
+
+    // Unlock audio on this gesture too
+    const sfx = this.registry.get('sfx');
+    if (sfx) sfx.resume();
+
+    // Same as onPlayTap — if first interaction, just start music
+    if (!this._musicStarted) {
+      this._startTitleMusic();
+      return;
+    }
+
     this._transitioning = true;
 
     // Clean up controller listener
@@ -185,12 +203,6 @@ export default class MenuScene extends Phaser.Scene {
       this.game.events.off('controller-press', this._controllerHandler);
       this._controllerHandler = null;
     }
-
-    // Unlock audio on this gesture too
-    const sfx = this.registry.get('sfx');
-    if (sfx) sfx.resume();
-    const audioManager = this.registry.get('audioManager');
-    if (audioManager) audioManager.resume();
 
     this.cameras.main.fadeOut(300);
     this.cameras.main.once('camerafadeoutcomplete', () => {
