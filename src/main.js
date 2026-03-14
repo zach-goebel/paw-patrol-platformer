@@ -109,15 +109,6 @@ game.events.once('ready', () => {
   const audioManager = new AudioManager(game);
   game.registry.set('audioManager', audioManager);
 
-  // Register music tracks for mobile HTML5 Audio playback
-  if (isTouchDevice) {
-    audioManager.addTrack('theme-title', 'assets/audio/theme-title.mp3');
-    audioManager.addTrack('theme-story', 'assets/audio/theme-story.mp3');
-    audioManager.addTrack('theme-gameplay', 'assets/audio/theme.mp3');
-    audioManager.addTrack('theme-boss', 'assets/audio/theme-boss.mp3');
-    audioManager.addTrack('theme-victory', 'assets/audio/theme-victory.mp3');
-  }
-
   // Decode file-based SFX into AudioBuffers for Web Audio playback
   const sfxFiles = ['sfx-bark', 'sfx-net-call', 'sfx-kitty-defeat', 'sfx-boss-defeat'];
   sfxFiles.forEach((key) => {

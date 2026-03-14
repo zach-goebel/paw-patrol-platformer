@@ -52,14 +52,10 @@ export default class PreloadScene extends Phaser.Scene {
     this.load.image('boss', 'assets/images/humdinger.png');
     this.load.image('skye', 'assets/images/skye.png');
 
-    // Load music tracks
-    this.load.audio('theme-gameplay', 'assets/audio/theme.mp3');
-    this.load.audio('theme-title', 'assets/audio/theme-title.mp3');
-    this.load.audio('theme-story', 'assets/audio/theme-story.mp3');
-    this.load.audio('theme-boss', 'assets/audio/theme-boss.mp3');
-    this.load.audio('theme-victory', 'assets/audio/theme-victory.mp3');
+    // Music tracks are loaded via HTML5 Audio in AudioManager (not Phaser)
+    // to avoid Web Audio decodeAudioData hangs on certain MP3 encodings.
 
-    // Load file-based sound effects
+    // Load file-based sound effects (small WAV files — safe to decode)
     this.load.audio('sfx-bark', 'assets/audio/sfx-bark.wav');
     this.load.audio('sfx-net-call', 'assets/audio/sfx-net-call.wav');
     this.load.audio('sfx-kitty-defeat', 'assets/audio/sfx-kitty-defeat.wav');
