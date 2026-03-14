@@ -113,13 +113,14 @@ export default class MenuScene extends Phaser.Scene {
 
     // Try to start title music immediately — will succeed if user has
     // already interacted with the page (e.g. returning from leaderboard).
-    // If blocked by autoplay policy, the first interaction handler below starts it.
     this._startTitleMusic();
 
-    // Autoplay fallback: start music on first click/key/touch anywhere on the page
+    // Autoplay fallback: use document-level listeners (not Phaser input)
+    // because Phaser input events don't fire until the canvas has focus,
+    // which may never happen if the user clicks outside the canvas first.
     this._unlockMusic = () => { this._startTitleMusic(); };
-    this.input.on('pointerdown', this._unlockMusic);
-    this.input.keyboard.on('keydown', this._unlockMusic);
+    document.addEventListener('pointerdown', this._unlockMusic, { once: false, capture: true });
+    document.addEventListener('keydown', this._unlockMusic, { once: false, capture: true });
   }
 
   _startTitleMusic() {
@@ -130,10 +131,10 @@ export default class MenuScene extends Phaser.Scene {
     audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
     this._musicStarted = true;
 
-    // Clean up the unlock listeners
+    // Clean up the document-level unlock listeners
     if (this._unlockMusic) {
-      this.input.off('pointerdown', this._unlockMusic);
-      this.input.keyboard.off('keydown', this._unlockMusic);
+      document.removeEventListener('pointerdown', this._unlockMusic, true);
+      document.removeEventListener('keydown', this._unlockMusic, true);
       this._unlockMusic = null;
     }
   }
@@ -195,6 +196,11 @@ export default class MenuScene extends Phaser.Scene {
     if (this._controllerHandler) {
       this.game.events.off('controller-press', this._controllerHandler);
       this._controllerHandler = null;
+    }
+    if (this._unlockMusic) {
+      document.removeEventListener('pointerdown', this._unlockMusic, true);
+      document.removeEventListener('keydown', this._unlockMusic, true);
+      this._unlockMusic = null;
     }
   }
 }

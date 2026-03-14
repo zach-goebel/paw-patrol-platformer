@@ -815,7 +815,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.netOnCooldown) return;
 
     const sfx = this.registry.get('sfx');
-    if (sfx) sfx.playRandom(['sfx-bark', 'sfx-net-call', 'net']);
+    if (sfx) sfx.playRandom(['sfx-bark', 'sfx-net-call']);
 
     this.netOnCooldown = true;
 

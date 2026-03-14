@@ -19,6 +19,13 @@ export default class SFX {
     }
   }
 
+  // Per-sound volume overrides (default is 0.6)
+  static FILE_VOLUMES = {
+    'sfx-kitty-defeat': 0.45,   // ~10% quieter than default
+    'sfx-net-call': 0.52,       // ~5% quieter than default
+    'sfx-boss-defeat': 1.0,     // doubled from default
+  };
+
   /**
    * Register a file-based sound effect from a preloaded Phaser audio cache.
    * @param {string} name - SFX name to use with play()
@@ -44,7 +51,7 @@ export default class SFX {
 
     // Check for file-based sound first
     if (this.fileSounds[name]) {
-      this._playBuffer(this.fileSounds[name]);
+      this._playBuffer(this.fileSounds[name], name);
       return;
     }
 
@@ -63,11 +70,12 @@ export default class SFX {
     }
   }
 
-  _playBuffer(buffer) {
+  _playBuffer(buffer, name) {
     const source = this.ctx.createBufferSource();
     source.buffer = buffer;
     const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+    const vol = SFX.FILE_VOLUMES[name] ?? 0.6;
+    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
     source.connect(gain).connect(this.ctx.destination);
     source.start(0);
   }

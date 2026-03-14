@@ -18,12 +18,13 @@ export default class VictoryScene extends Phaser.Scene {
     this._transitioning = false;
 
     // Victory fanfare is already playing (started in GameScene.onReachSkye).
-    // Crossfade into title theme which continues through name entry and leaderboard.
+    // Hard cut to title theme which continues through name entry and leaderboard.
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
       this.time.delayedCall(1500, () => {
         if (audioManager) {
-          audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800, fadeOut: 800 });
+          audioManager.stopMusic(0);
+          audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 200, fadeOut: 0 });
         }
       });
     }
