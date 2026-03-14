@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, GRAVITY } from './config/constants.js';
 import GameState from './config/GameState.js';
 import SFX from './utils/SFX.js';
+import AudioManager from './utils/AudioManager.js';
 import PreloadScene from './scenes/PreloadScene.js';
 import MenuScene from './scenes/MenuScene.js';
 import TutorialScene from './scenes/TutorialScene.js';
@@ -99,10 +100,15 @@ const sfx = new SFX();
 game.registry.set('sfx', sfx);
 
 // Initialize SFX with Phaser's managed AudioContext so sounds stay
-// unlocked across scene transitions (fixes missing SFX on levels 1-2)
+// unlocked across scene transitions (fixes missing SFX on levels 1-2).
+// File-based SFX decoding happens in PreloadScene.create() after assets load.
 game.events.once('ready', () => {
   const phaserCtx = game.sound && game.sound.context;
   sfx.init(phaserCtx);
+
+  // Initialize AudioManager for music (uses HTML5 Audio for all platforms)
+  const audioManager = new AudioManager(game);
+  game.registry.set('audioManager', audioManager);
 });
 
 // iOS audio unlock — must happen in a direct DOM touch handler (capture phase).

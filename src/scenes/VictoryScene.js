@@ -17,6 +17,14 @@ export default class VictoryScene extends Phaser.Scene {
     this.cameras.main.fadeIn(500);
     this._transitioning = false;
 
+    // Victory fanfare was playing from GameScene.onReachSkye — kill it now.
+    // Hard cut: immediately stop fanfare, start title theme with no overlap.
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.stopMusic(0);
+      audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 0, fadeOut: 0 });
+    }
+
     // Fireworks / confetti particles
     this.createFireworks();
 

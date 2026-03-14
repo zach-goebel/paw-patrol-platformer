@@ -10,6 +10,12 @@ export default class StoryScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.LAIR_DARK);
     this.cameras.main.fadeIn(300);
 
+    // Switch to story music
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.playMusic('theme-story', { volume: 0.35, fadeIn: 500, fadeOut: 500 });
+    }
+
     // Chase on the left
     this.add.image(120, GAME_HEIGHT / 2 - 20, 'player').setScale(1.5);
 

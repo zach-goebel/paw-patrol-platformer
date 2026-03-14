@@ -209,6 +209,12 @@ export default class GameScene extends Phaser.Scene {
     // Level name display
     this.showLevelName(level.name);
 
+    // Start gameplay music (only if not already playing — persists across levels)
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager && audioManager.currentKey !== 'theme-gameplay') {
+      audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 600, fadeOut: 500 });
+    }
+
     // Auto-pause on visibility change
     this.game.events.on('hidden', this.onHidden, this);
     this.game.events.on('visible', this.onVisible, this);
@@ -378,6 +384,13 @@ export default class GameScene extends Phaser.Scene {
     if (this.bossState !== 'waiting') return;
     this.bossActive = true;
     this.bossTrigger.destroy();
+
+    // Switch to boss music
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.playMusic('theme-boss', { volume: 0.4, fadeIn: 300, fadeOut: 300 });
+    }
+
     this.bossCycle();
   }
 
@@ -614,7 +627,24 @@ export default class GameScene extends Phaser.Scene {
     this.cinematicMode = true;
 
     const sfx = this.registry.get('sfx');
-    if (sfx) sfx.play('victory');
+    // Play boss defeat groan immediately, then victory arpeggio after a beat
+    if (sfx) {
+      sfx.play('sfx-boss-defeat');
+    }
+    this.time.delayedCall(400, () => {
+      if (sfx) sfx.play('victory');
+    });
+
+    // Fade boss music out so the defeat SFX is clearly audible
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      if (this.levelData.miniBoss) {
+        audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 500, fadeOut: 500 });
+      } else {
+        // Final boss — stop music immediately so defeat groan cuts through
+        audioManager.stopMusic(0);
+      }
+    }
 
     // Remove boss-player collider
     if (this.bossCollider) {
@@ -703,6 +733,12 @@ export default class GameScene extends Phaser.Scene {
 
     this.player.setVelocityX(0);
 
+    // Start victory fanfare when Chase and Skye start celebrating
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.playMusic('theme-victory', { volume: 0.5, loop: false, fadeIn: 300, fadeOut: 500 });
+    }
+
     // Chase and Skye bounce together
     this.tweens.add({
       targets: [this.player, this.skye],
@@ -782,7 +818,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.netOnCooldown) return;
 
     const sfx = this.registry.get('sfx');
-    if (sfx) sfx.play('net');
+    if (sfx) sfx.playRandom(['sfx-bark', 'sfx-net-call']);
 
     this.netOnCooldown = true;
 
@@ -816,7 +852,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemies.remove(enemy, false, false);
 
     const sfx = this.registry.get('sfx');
-    if (sfx) sfx.play('stomp');
+    if (sfx) sfx.play('sfx-kitty-defeat');
 
     // Update kitty counter
     const state = this.registry.get('state');

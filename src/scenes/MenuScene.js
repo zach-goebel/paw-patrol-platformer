@@ -2,18 +2,14 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../config/constants.js';
 import { getScores } from '../utils/LeaderboardAPI.js';
 
-const AUDIO_IDLE = 0;
-const AUDIO_UNLOCKING = 1;
-const AUDIO_READY = 2;
-
 export default class MenuScene extends Phaser.Scene {
   constructor() {
     super('MenuScene');
   }
 
   create() {
-    this.audioState = AUDIO_IDLE;
     this._transitioning = false;
+    this._musicStarted = false;
 
     // Sky background
     this.cameras.main.setBackgroundColor(COLORS.SKY_BLUE);
@@ -114,13 +110,38 @@ export default class MenuScene extends Phaser.Scene {
         }
       });
     }
+
+    // Try to start title music immediately — will succeed if user has
+    // already interacted with the page (e.g. returning from leaderboard).
+    this._startTitleMusic();
+
+    // Autoplay fallback: use document-level listeners (not Phaser input)
+    // because Phaser input events don't fire until the canvas has focus,
+    // which may never happen if the user clicks outside the canvas first.
+    this._unlockMusic = () => { this._startTitleMusic(); };
+    document.addEventListener('pointerdown', this._unlockMusic, { once: false, capture: true });
+    document.addEventListener('keydown', this._unlockMusic, { once: false, capture: true });
+  }
+
+  _startTitleMusic() {
+    if (this._musicStarted) return;
+    const audioManager = this.registry.get('audioManager');
+    if (!audioManager) return;
+    audioManager.resume();
+    audioManager.playMusic('theme-title', { volume: 0.4, fadeIn: 800 });
+    this._musicStarted = true;
+
+    // Clean up the document-level unlock listeners
+    if (this._unlockMusic) {
+      document.removeEventListener('pointerdown', this._unlockMusic, true);
+      document.removeEventListener('keydown', this._unlockMusic, true);
+      this._unlockMusic = null;
+    }
   }
 
   onPlayTap(playBtn) {
     if (this._transitioning) return;
-    if (this.audioState !== AUDIO_IDLE) return;
     this._transitioning = true;
-    this.audioState = AUDIO_UNLOCKING;
 
     // Clean up controller listener
     if (this._controllerHandler) {
@@ -139,37 +160,8 @@ export default class MenuScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
 
-    const ctx = this.sound.context;
-    if (ctx && ctx.state === 'suspended') {
-      ctx.resume();
-    }
-
-    this.audioState = AUDIO_READY;
-
-    // Start theme music — use HTML5 Audio on mobile (bypasses iOS silent switch),
-    // Phaser Web Audio on desktop
-    const isMobile = this.registry.get('isTouchDevice');
-    if (!this.registry.get('themeMusic')) {
-      if (isMobile) {
-        const audio = new Audio('assets/audio/theme.mp3');
-        audio.loop = true;
-        audio.volume = 0.4;
-        this.registry.set('themeMusic', audio);
-      } else {
-        const theme = this.sound.add('theme', { loop: true, volume: 0.4 });
-        this.registry.set('themeMusic', theme);
-      }
-    }
-    const theme = this.registry.get('themeMusic');
-    if (isMobile) {
-      if (theme.paused || theme.currentTime === 0) {
-        theme.play().catch(() => {});
-      }
-    } else {
-      if (theme && !theme.isPlaying) {
-        theme.play();
-      }
-    }
+    // Ensure title music is playing (in case autoplay was blocked)
+    this._startTitleMusic();
 
     // Brief flash transition
     this.cameras.main.fadeOut(300, 0, 0, 0);
@@ -191,9 +183,8 @@ export default class MenuScene extends Phaser.Scene {
     // Unlock audio on this gesture too
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.resume();
-    if (this.sound.context && this.sound.context.state === 'suspended') {
-      this.sound.context.resume();
-    }
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) audioManager.resume();
 
     this.cameras.main.fadeOut(300);
     this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -205,6 +196,11 @@ export default class MenuScene extends Phaser.Scene {
     if (this._controllerHandler) {
       this.game.events.off('controller-press', this._controllerHandler);
       this._controllerHandler = null;
+    }
+    if (this._unlockMusic) {
+      document.removeEventListener('pointerdown', this._unlockMusic, true);
+      document.removeEventListener('keydown', this._unlockMusic, true);
+      this._unlockMusic = null;
     }
   }
 }

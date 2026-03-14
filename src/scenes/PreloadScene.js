@@ -52,8 +52,14 @@ export default class PreloadScene extends Phaser.Scene {
     this.load.image('boss', 'assets/images/humdinger.png');
     this.load.image('skye', 'assets/images/skye.png');
 
-    // Load music
-    this.load.audio('theme', 'assets/audio/theme.mp3');
+    // Music tracks are loaded via HTML5 Audio in AudioManager (not Phaser)
+    // to avoid Web Audio decodeAudioData hangs on certain MP3 encodings.
+
+    // Load file-based sound effects (small WAV files — safe to decode)
+    this.load.audio('sfx-bark', 'assets/audio/sfx-bark.wav');
+    this.load.audio('sfx-net-call', 'assets/audio/sfx-net-call.wav');
+    this.load.audio('sfx-kitty-defeat', 'assets/audio/sfx-kitty-defeat.wav');
+    this.load.audio('sfx-boss-defeat', 'assets/audio/sfx-boss-defeat.wav');
 
     // Load tiling backgrounds (800x480)
     this.load.image('bg-adventure-bay', 'assets/images/bg-adventure-bay.png');
@@ -182,6 +188,30 @@ export default class PreloadScene extends Phaser.Scene {
     if (this.loadErrors.length > 0) {
       console.warn('Failed to load assets:', this.loadErrors);
     }
+
+    // Decode file-based SFX now that Phaser has loaded and decoded them.
+    // This must happen here (not in main.js 'ready' event) because 'ready'
+    // fires before PreloadScene finishes loading assets.
+    const sfx = this.registry.get('sfx');
+    if (sfx && sfx.ctx) {
+      const sfxKeys = ['sfx-bark', 'sfx-net-call', 'sfx-kitty-defeat', 'sfx-boss-defeat'];
+      sfxKeys.forEach((key) => {
+        try {
+          const cacheEntry = this.cache.audio.get(key);
+          if (!cacheEntry) return;
+          if (cacheEntry instanceof AudioBuffer) {
+            sfx.addFileSound(key, cacheEntry);
+          } else if (cacheEntry instanceof ArrayBuffer) {
+            sfx.ctx.decodeAudioData(cacheEntry.slice(0), (buffer) => {
+              sfx.addFileSound(key, buffer);
+            });
+          }
+        } catch (e) {
+          console.warn(`Failed to decode SFX: ${key}`, e);
+        }
+      });
+    }
+
     this.scene.start('MenuScene');
   }
 }
