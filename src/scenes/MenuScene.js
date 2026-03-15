@@ -111,26 +111,28 @@ export default class MenuScene extends Phaser.Scene {
       });
     }
 
-    // Mute button
-    this._isMuted = false;
-    const audioManager = this.registry.get('audioManager');
-    const sfx = this.registry.get('sfx');
-    // Sync with current mute state
-    if (audioManager && audioManager._muted) {
-      this._isMuted = true;
-    }
+    // Mute button — desktop only (mobile audio context is fragile)
+    if (!isTouchDevice) {
+      this._isMuted = false;
+      const audioManager = this.registry.get('audioManager');
+      const sfx = this.registry.get('sfx');
+      // Sync with current mute state
+      if (audioManager && audioManager._muted) {
+        this._isMuted = true;
+      }
 
-    const muteBtn = this.add.text(GAME_WIDTH - 50, 80, this._isMuted ? '\u{1F507}' : '\u{1F50A}', {
-      fontSize: '28px',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setInteractive({ useHandCursor: true });
-    muteBtn.on('pointerdown', () => {
-      this._isMuted = !this._isMuted;
-      muteBtn.setText(this._isMuted ? '\u{1F507}' : '\u{1F50A}');
-      if (audioManager) audioManager.toggleMute();
-      if (sfx) sfx.muted = this._isMuted;
-    });
+      const muteBtn = this.add.text(GAME_WIDTH - 50, 80, this._isMuted ? '\u{1F507}' : '\u{1F50A}', {
+        fontSize: '28px',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setInteractive({ useHandCursor: true });
+      muteBtn.on('pointerdown', () => {
+        this._isMuted = !this._isMuted;
+        muteBtn.setText(this._isMuted ? '\u{1F507}' : '\u{1F50A}');
+        if (audioManager) audioManager.toggleMute();
+        if (sfx) sfx.muted = this._isMuted;
+      });
+    }
 
     // Audio is already unlocked from BirthdaySplashScene — start title music immediately.
     // If returning from leaderboard/game, audio is already active.

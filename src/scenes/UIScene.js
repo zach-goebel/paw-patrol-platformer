@@ -62,14 +62,17 @@ export default class UIScene extends Phaser.Scene {
       this.hearts.push(heart);
     }
 
-    // Mute button (next to timer)
-    this.isMuted = false;
-    this.muteBtn = this.add.text(GAME_WIDTH / 2 + 40, 8, '\u{1F50A}', {
-      fontSize: '22px',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setInteractive({ useHandCursor: true }).setDepth(100);
-    this.muteBtn.on('pointerdown', () => { this._toggleMute(); });
+    // Mute button (next to timer) — desktop only
+    const isTouchDevice = this.registry.get('isTouchDevice');
+    if (!isTouchDevice) {
+      this.isMuted = false;
+      this.muteBtn = this.add.text(GAME_WIDTH / 2 + 40, 8, '\u{1F50A}', {
+        fontSize: '22px',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setInteractive({ useHandCursor: true }).setDepth(100);
+      this.muteBtn.on('pointerdown', () => { this._toggleMute(); });
+    }
 
     // Listen for events
     this.game.events.on('score-changed', this.onScoreChanged, this);
