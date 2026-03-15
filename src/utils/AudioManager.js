@@ -135,10 +135,14 @@ export default class AudioManager {
     this.currentKey = key;
     this.currentAudio = audio;
 
+    // Remember target volume for unmuting later; stay silent if muted
+    this._muteVolume = volume;
+    const targetVolume = this._muted ? 0 : volume;
+
     const playPromise = audio.play();
     if (playPromise) {
       playPromise.then(() => {
-        this._fadeInAudio(audio, volume, fadeIn);
+        this._fadeInAudio(audio, targetVolume, fadeIn);
         if (onStarted) onStarted();
       }).catch(() => {
         if (this.currentAudio === audio) {
@@ -147,7 +151,7 @@ export default class AudioManager {
         }
       });
     } else {
-      this._fadeInAudio(audio, volume, fadeIn);
+      this._fadeInAudio(audio, targetVolume, fadeIn);
       if (onStarted) onStarted();
     }
   }
