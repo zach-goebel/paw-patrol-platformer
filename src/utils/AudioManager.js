@@ -42,6 +42,7 @@ export default class AudioManager {
       const audio = new Audio(path);
       audio.preload = 'auto';
       audio.volume = 0;
+      audio.muted = true;  // Belt-and-suspenders: mobile ignores volume=0 briefly
       audio.load();
 
       // Unlock the element by playing and immediately pausing.
@@ -52,7 +53,10 @@ export default class AudioManager {
         p.then(() => {
           audio.pause();
           audio.currentTime = 0;
-        }).catch(() => {});
+          audio.muted = false;
+        }).catch(() => { audio.muted = false; });
+      } else {
+        audio.muted = false;
       }
 
       this._pool[key] = audio;

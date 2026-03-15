@@ -142,7 +142,7 @@ if (isTouchDevice) {
         wrapper.classList.add('landscape');
         leftPanel.appendChild(dpad);
         rightPanel.appendChild(actions);
-        game.scale.autoCenter = Phaser.Scale.NO_CENTER;
+        game.scale.autoCenter = Phaser.Scale.CENTER_BOTH;
       } else {
         wrapper.classList.remove('landscape');
         bar.appendChild(dpad);
