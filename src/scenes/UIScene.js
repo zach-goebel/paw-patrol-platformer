@@ -65,8 +65,9 @@ export default class UIScene extends Phaser.Scene {
     // Mute button (next to timer) — desktop only
     const isTouchDevice = this.registry.get('isTouchDevice');
     if (!isTouchDevice) {
-      this.isMuted = false;
-      this.muteBtn = this.add.text(GAME_WIDTH / 2 + 40, 8, '\u{1F50A}', {
+      const audioManager = this.registry.get('audioManager');
+      this.isMuted = !!(audioManager && audioManager._muted);
+      this.muteBtn = this.add.text(GAME_WIDTH / 2 + 40, 8, this.isMuted ? '\u{1F507}' : '\u{1F50A}', {
         fontSize: '22px',
         stroke: '#000000',
         strokeThickness: 3,
@@ -121,14 +122,10 @@ export default class UIScene extends Phaser.Scene {
   }
 
   _toggleMute() {
-    this.isMuted = !this.isMuted;
-    this.muteBtn.setText(this.isMuted ? '\u{1F507}' : '\u{1F50A}');
-
     const audioManager = this.registry.get('audioManager');
     if (audioManager) audioManager.toggleMute();
-
-    const sfx = this.registry.get('sfx');
-    if (sfx) sfx.muted = this.isMuted;
+    this.isMuted = !!(audioManager && audioManager._muted);
+    this.muteBtn.setText(this.isMuted ? '\u{1F507}' : '\u{1F50A}');
   }
 
   onKittyCaptured(count) {

@@ -114,12 +114,7 @@ export default class MenuScene extends Phaser.Scene {
     // Mute button — desktop only (mobile audio context is fragile)
     const audioManager = this.registry.get('audioManager');
     if (!isTouchDevice) {
-      this._isMuted = false;
-      const sfx = this.registry.get('sfx');
-      // Sync with current mute state
-      if (audioManager && audioManager._muted) {
-        this._isMuted = true;
-      }
+      this._isMuted = !!(audioManager && audioManager._muted);
 
       const muteBtn = this.add.text(GAME_WIDTH - 50, 80, this._isMuted ? '\u{1F507}' : '\u{1F50A}', {
         fontSize: '28px',
@@ -127,10 +122,9 @@ export default class MenuScene extends Phaser.Scene {
         strokeThickness: 3,
       }).setInteractive({ useHandCursor: true });
       muteBtn.on('pointerdown', () => {
-        this._isMuted = !this._isMuted;
-        muteBtn.setText(this._isMuted ? '\u{1F507}' : '\u{1F50A}');
         if (audioManager) audioManager.toggleMute();
-        if (sfx) sfx.muted = this._isMuted;
+        this._isMuted = !!(audioManager && audioManager._muted);
+        muteBtn.setText(this._isMuted ? '\u{1F507}' : '\u{1F50A}');
       });
     }
 

@@ -240,7 +240,7 @@ export default class AudioManager {
   }
 
   /**
-   * Toggle mute/unmute for music.
+   * Toggle mute/unmute for music and SFX.
    */
   toggleMute() {
     this._muted = !this._muted;
@@ -252,6 +252,9 @@ export default class AudioManager {
         this.currentAudio.volume = this._muteVolume || 0.4;
       }
     }
+    // Keep SFX in sync
+    const sfx = this.game.registry.get('sfx');
+    if (sfx) sfx.muted = this._muted;
     return this._muted;
   }
 
