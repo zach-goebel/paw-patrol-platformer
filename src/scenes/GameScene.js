@@ -120,7 +120,7 @@ export default class GameScene extends Phaser.Scene {
       kitty.body.setAllowGravity(false);
       kitty.body.setImmovable(true);
       kitty.body.setSize(40, 48);
-      kitty.body.setOffset(12, 12);
+      kitty.body.setOffset(12, 1);
       kitty.patrolLeft = e.patrolLeft;
       kitty.patrolRight = e.patrolRight;
       kitty.speed = 60 + Math.random() * 20;
@@ -132,9 +132,9 @@ export default class GameScene extends Phaser.Scene {
     // Create player (Chase) — 64x64 sprite
     this.player = this.physics.add.sprite(100, 400, 'player');
     this.player.setBounce(0.1);
-    this.player.setCollideWorldBounds(false);
+    this.player.setCollideWorldBounds(true);
     this.player.body.setSize(36, 52);
-    this.player.body.setOffset(14, 10);
+    this.player.body.setOffset(14, 0);
     this.player.setDepth(10);
 
     // Net projectile pool
@@ -184,6 +184,7 @@ export default class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.netKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
+    this.muteKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.M);
 
     // Touch controls — only on touch devices
     const primaryIsCoarse = window.matchMedia('(pointer: coarse)').matches;
@@ -347,19 +348,20 @@ export default class GameScene extends Phaser.Scene {
     // Boss health tracking
     this.bossHitsRemaining = this.bossHP;
 
-    // Net-vs-boss overlap with processCallback guard
+    // Net-vs-boss overlap with processCallback guard.
+    // Phaser may pass (net, boss) or (boss, net) — identify by texture key.
     this.netBossOverlap = this.physics.add.overlap(
       this.nets,
       this.boss,
-      (net) => {
-        // Consume the net and register the hit
+      (objA, objB) => {
+        const net = objA.texture.key === 'boss' ? objB : objA;
         net.setActive(false).setVisible(false);
         net.body.enable = false;
         this.hitBossWithNet();
       },
-      (net) => {
+      (objA, objB) => {
+        const net = objA.texture.key === 'boss' ? objB : objA;
         if (!net.active) return false;
-        // Only allow hit if boss is vulnerable and no hit registered this window
         if (this.bossState === 'vulnerable' && !this.bossHitRegistered) {
           return true;
         }
@@ -826,6 +828,17 @@ export default class GameScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('sfx-boss-defeat');
 
+    // Stop boss music and resume appropriate track
+    const audioManager = this.registry.get('audioManager');
+    if (audioManager) {
+      audioManager.stopMusic(0);
+      if (this.levelData.miniBoss) {
+        this.time.delayedCall(1200, () => {
+          audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 800, fadeOut: 0 });
+        });
+      }
+    }
+
     if (this.bossCollider) {
       this.physics.world.removeCollider(this.bossCollider);
       this.bossCollider = null;
@@ -864,7 +877,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.netOnCooldown = true;
 
-    const dir = this.player.flipX ? -1 : 1;
+    const dir = this.player.flipX ? 1 : -1;
     const startX = this.player.x + dir * 20;
     const startY = this.player.y;
 
@@ -1085,6 +1098,10 @@ export default class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.netKey)) {
         wantsNet = true;
       }
+      if (Phaser.Input.Keyboard.JustDown(this.muteKey)) {
+        const audioManager = this.registry.get('audioManager');
+        if (audioManager) audioManager.toggleMute();
+      }
 
       // Touch
       if (this.touchIntent.left) moveX -= 1;
@@ -1114,8 +1131,8 @@ export default class GameScene extends Phaser.Scene {
     player.setVelocityX(moveX * PLAYER_SPEED);
 
     // Flip sprite
-    if (moveX < 0) player.setFlipX(true);
-    else if (moveX > 0) player.setFlipX(false);
+    if (moveX < 0) player.setFlipX(false);
+    else if (moveX > 0) player.setFlipX(true);
 
     // Jump (with double jump support)
     if (wantsJump && this.jumpsRemaining > 0) {
@@ -1190,18 +1207,18 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    // Fail-safe: if boss vanished, ensure game is still completable
+    // Fail-safe: if boss vanished, ensure game is still completable.
+    // Only trigger after a grace period AND when the boss is not actively
+    // in combat (approaching/vulnerable/hit-stun states mean the fight is
+    // still happening — the boss may just be momentarily off-screen).
     if (this.bossActive && this.bossState !== 'defeated' && !this.isTransitioning) {
-      if (this.isBossGone()) {
+      const bossInCombat = this.bossState === 'approaching' || this.bossState === 'vulnerable' || this.bossState === 'hit-stun';
+      if (this.isBossGone() && !bossInCombat) {
         if (!this._bossGoneTime) {
           this._bossGoneTime = time;
         }
         const elapsed = time - this._bossGoneTime;
-        if (this.levelData.miniBoss) {
-          // Stages 1-2: immediate failsafe
-          this.bossGoneFailsafe();
-        } else if (elapsed >= 3000) {
-          // Stage 3: 3-second grace period before failsafe
+        if (elapsed >= 3000) {
           this.bossGoneFailsafe();
         }
       } else {

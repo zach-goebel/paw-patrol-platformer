@@ -2,6 +2,7 @@ export default class SFX {
   constructor() {
     this.ctx = null;
     this.enabled = true;
+    this.muted = false;
     this.fileSounds = {};  // name -> AudioBuffer
   }
 
@@ -46,7 +47,7 @@ export default class SFX {
   }
 
   play(name) {
-    if (!this.enabled || !this.ctx) return;
+    if (!this.enabled || !this.ctx || this.muted) return;
 
     // If context is suspended, resume it first. For file-based sounds,
     // we must wait for resume to complete before starting the buffer source.

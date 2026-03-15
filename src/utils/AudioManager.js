@@ -24,6 +24,8 @@ export default class AudioManager {
     this._fadeTimer = null;
     this._pool = {};       // key -> Audio element (pre-created)
     this._unlocked = false;
+    this._muted = false;
+    this._muteVolume = 0;  // volume before muting
   }
 
   /**
@@ -39,6 +41,7 @@ export default class AudioManager {
 
       const audio = new Audio(path);
       audio.preload = 'auto';
+      audio.volume = 0;
       audio.load();
 
       // Unlock the element by playing and immediately pausing.
@@ -230,6 +233,22 @@ export default class AudioManager {
         } catch {}
       }
     }, interval);
+  }
+
+  /**
+   * Toggle mute/unmute for music.
+   */
+  toggleMute() {
+    this._muted = !this._muted;
+    if (this.currentAudio) {
+      if (this._muted) {
+        this._muteVolume = this.currentAudio.volume;
+        this.currentAudio.volume = 0;
+      } else {
+        this.currentAudio.volume = this._muteVolume || 0.4;
+      }
+    }
+    return this._muted;
   }
 
   /**
