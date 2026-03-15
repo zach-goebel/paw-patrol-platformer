@@ -112,9 +112,9 @@ export default class MenuScene extends Phaser.Scene {
     }
 
     // Mute button — desktop only (mobile audio context is fragile)
+    const audioManager = this.registry.get('audioManager');
     if (!isTouchDevice) {
       this._isMuted = false;
-      const audioManager = this.registry.get('audioManager');
       const sfx = this.registry.get('sfx');
       // Sync with current mute state
       if (audioManager && audioManager._muted) {
