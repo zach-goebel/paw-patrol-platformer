@@ -128,6 +128,19 @@ export default class MenuScene extends Phaser.Scene {
       });
     }
 
+    // "Made by" credit — tappable link to website
+    const credit = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'Designed by Zach  \u2022  zacharygoebel.com', {
+      fontSize: '22px',
+      fill: '#ffffff',
+      fontFamily: 'monospace',
+      stroke: '#000000',
+      strokeThickness: 2,
+      alpha: 0.7,
+    }).setOrigin(0.5).setAlpha(0.7).setInteractive({ useHandCursor: true });
+    credit.on('pointerdown', () => {
+      window.open('https://zacharygoebel.com', '_blank');
+    });
+
     // Audio is already unlocked from BirthdaySplashScene — start title music immediately.
     // If returning from leaderboard/game, audio is already active.
     if (audioManager) {
