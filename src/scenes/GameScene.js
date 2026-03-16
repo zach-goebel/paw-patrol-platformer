@@ -263,22 +263,31 @@ export default class GameScene extends Phaser.Scene {
     const buttons = this.registry.get('touchButtons');
     if (!buttons) return;
 
+    // Resume audio on any touch gesture — safety net for mobile browsers
+    // that suspend the AudioContext after audio pipeline disruptions.
+    const resumeAudio = () => {
+      const sfx = this.registry.get('sfx');
+      if (sfx) sfx.resume();
+      const audioManager = this.registry.get('audioManager');
+      if (audioManager) audioManager.resume();
+    };
+
     // D-pad
-    buttons.left.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.left = true; });
+    buttons.left.addEventListener('touchstart', (e) => { e.preventDefault(); resumeAudio(); this.touchIntent.left = true; });
     buttons.left.addEventListener('touchend', () => { this.touchIntent.left = false; });
     buttons.left.addEventListener('touchcancel', () => { this.touchIntent.left = false; });
 
-    buttons.right.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.right = true; });
+    buttons.right.addEventListener('touchstart', (e) => { e.preventDefault(); resumeAudio(); this.touchIntent.right = true; });
     buttons.right.addEventListener('touchend', () => { this.touchIntent.right = false; });
     buttons.right.addEventListener('touchcancel', () => { this.touchIntent.right = false; });
 
     // Jump — _jumpHeld tracks whether finger is on button (for variable-height jump)
-    buttons.jump.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.jump = true; this._jumpHeld = true; });
+    buttons.jump.addEventListener('touchstart', (e) => { e.preventDefault(); resumeAudio(); this.touchIntent.jump = true; this._jumpHeld = true; });
     buttons.jump.addEventListener('touchend', () => { this._jumpHeld = false; });
     buttons.jump.addEventListener('touchcancel', () => { this._jumpHeld = false; });
 
     // Net
-    buttons.net.addEventListener('touchstart', (e) => { e.preventDefault(); this.touchIntent.net = true; });
+    buttons.net.addEventListener('touchstart', (e) => { e.preventDefault(); resumeAudio(); this.touchIntent.net = true; });
     buttons.net.addEventListener('touchend', () => {});
     buttons.net.addEventListener('touchcancel', () => {});
   }
@@ -563,9 +572,6 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(300, 0.01);
 
     if (this.bossHitsRemaining <= 0) {
-      // Final hit — play defeat SFX immediately here (belt-and-suspenders
-      // with bossDefeated), ensuring it fires regardless of animation state
-      if (sfx) sfx.play('sfx-boss-defeat');
       this.bossDefeated();
     } else {
       // Non-final hit — show damage reaction then restart cycle
@@ -639,10 +645,10 @@ export default class GameScene extends Phaser.Scene {
       if (sfx) sfx.play('victory');
     });
 
-    // Hard-stop music so the COMICALLY LOUD defeat SFX cuts through
+    // Fade out music quickly so the defeat SFX cuts through
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
-      audioManager.stopMusic(0);
+      audioManager.stopMusic(300);
 
       if (this.levelData.miniBoss) {
         // Mini-boss: resume gameplay music after defeat SFX has had its moment
@@ -828,10 +834,10 @@ export default class GameScene extends Phaser.Scene {
     const sfx = this.registry.get('sfx');
     if (sfx) sfx.play('sfx-boss-defeat');
 
-    // Stop boss music and resume appropriate track
+    // Fade out boss music quickly
     const audioManager = this.registry.get('audioManager');
     if (audioManager) {
-      audioManager.stopMusic(0);
+      audioManager.stopMusic(300);
       if (this.levelData.miniBoss) {
         this.time.delayedCall(1200, () => {
           audioManager.playMusic('theme-gameplay', { volume: 0.35, fadeIn: 800, fadeOut: 0 });
