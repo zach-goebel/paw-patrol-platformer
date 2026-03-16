@@ -24,7 +24,7 @@ export default class SFX {
   static FILE_VOLUMES = {
     'sfx-kitty-defeat': 0.45,   // ~10% quieter than default
     'sfx-net-call': 0.52,       // ~5% quieter than default
-    'sfx-boss-defeat': 2.0,     // COMICALLY LOUD — intentionally clips for comedic effect
+    'sfx-boss-defeat': 0.9,     // Loud but safe for mobile audio pipelines
   };
 
   /**
